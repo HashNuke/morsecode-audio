@@ -25,8 +25,8 @@ HTTP requests within five seconds.
 
 Implemented so far: health/readiness, arbitrary-key HTTP authentication, a
 static catalog, all four HTTP TTS variants and all 28 nonstreaming output formats,
-plus synchronous PCM16/WAV transcription and realtime STT WebSockets. TTS
-WebSockets, browser authentication, optional API fields and compressed STT remain
+plus synchronous PCM16/WAV transcription, realtime STT WebSockets and STT browser
+tokens. TTS WebSockets and their authentication, optional API fields and compressed STT remain
 subsequent checkpoints; see
 [the compatibility ledger](docs/elevenlabs-compatibility.md).
 No production or hosted compatibility claim is made yet.

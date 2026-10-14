@@ -6,8 +6,8 @@ Baseline: official public HTTP OpenAPI retrieved 2026-10-14, content hashes in
 requests, responses, defaults and their transitive schemas. Upstream prose and
 examples are omitted. The snapshot is a contract, not evidence of implementation.
 
-Status: HTTP speech and realtime STT checkpoints; TTS WebSockets, browser
-authentication and remaining optional-field semantics remain pending.
+Status: HTTP speech, realtime STT and STT browser tokens; TTS WebSockets,
+their authentication and remaining optional-field semantics remain pending.
 Do not describe this revision as a complete ElevenLabs replacement.
 
 | Operation | Status | Evidence / remaining work |
@@ -22,9 +22,10 @@ Do not describe this revision as a complete ElevenLabs replacement.
 | TTS single-context WebSocket | pending E | init, incremental text, flush, EOS, audio, final, alignment |
 | TTS multi-context WebSocket | pending E | independent context lifecycle and fair bounded output |
 | Batch multipart STT | implemented for mono PCM16/WAV | independent signal and bidirectional Elixir fixtures, SDK/schema round trip; compressed/multichannel pending H |
-| Realtime STT WebSocket | implemented for header auth and documented Morse options | independent signals at seven formats, repeated manual/VAD commits, timing, keepalive, bounded lifecycle, official SDK/AsyncAPI validation |
+| Realtime STT WebSocket | implemented for header/token auth and documented Morse options | independent signals at seven formats, repeated manual/VAD commits, timing, keepalive, bounded lifecycle, official SDK/AsyncAPI validation |
 | Bearer/WS initialization authentication | pending E | preserve documented auth locations and precedence |
-| Speech single-use tokens | pending E | purpose, expiry, one-time consumption, bounded memory |
+| Speech single-use tokens | issuance for all three purposes; batch/realtime consumption implemented | expiry, atomic replay rejection, purpose/route scope, restart/drain invalidation and bounded memory; TTS consumption awaits WS handlers |
+| Browser CORS/origins | implemented for available speech routes | unauthenticated OPTIONS, explicit credentials only, wildcard origin without cookie credentials; cross-origin STT WS fixture |
 | Retained transcript GET/DELETE | decision pending | conflicts with no retained content |
 | Webhook jobs and historical request-ID stitching | decision pending | no persistent jobs/history; proposed explicit error |
 
@@ -47,15 +48,49 @@ semantic parity remain H work; working formats alone do not establish them.
 
 ## Authentication and unsupported behavior
 
-An HTTP request presently requires a nonempty `xi-api-key`; keys are not stored,
-registered or checked externally. Missing keys return HTTP 401 with
+HTTP accepts a nonempty `xi-api-key`; keys are not stored,
+registered or checked externally. Missing credentials return HTTP 401 with
 `detail.status=needs_authorization`. Whitespace-only credentials are empty.
 Unknown voice IDs return 404 `voice_not_found`. Missing routes return 404
 `not_found`. Draining rejects new API work with 503 `not_ready`.
 
-The final authentication profile must include all documented speech forms. Token
-state will be bounded in-memory protocol state, invalidated on restart, with one
-replica initially. Keys never appear in logs. No response claims key ownership.
+`POST /v1/single-use-token/{token_type}` issues `realtime_scribe`, `batch_scribe`
+and `tts_websocket` tokens with the pinned response schema. Batch and realtime
+STT accept their respective token in the `token` query parameter, with no header
+required. TTS token consumption and bearer/initial-message auth remain E work.
+
+Tokens expire at 15 minutes and consume atomically on successful authentication,
+before payload validation or socket upgrade. A failed admitted operation therefore
+requires a fresh token. Wrong-purpose attempts do not consume a still-valid token.
+An explicitly supplied token takes precedence over the header: empty, unknown,
+expired, reused, duplicate or wrong-purpose tokens return 401 `invalid_token`
+without falling back to a key. Tokens cannot authenticate discovery or issuance.
+These precedence/error choices are the service's explicit compatibility profile;
+the upstream reference does not specify all mixed-credential/error cases.
+
+Each server owns at most 4096 outstanding token records. Issuance sweeps expired
+records and returns 429 `too_many_tokens` at capacity. Consumption frees capacity;
+drain clears all records and blocks issuance. Records contain only a random-token
+SHA-256 digest, purpose and expiry, never an issuing key or user content. All
+records disappear on restart; run one replica. No background timer or storage is
+required. Tokens are removed from the internal query before speech options and
+session acknowledgements are constructed; diagnostics never log raw request URLs.
+
+All browser origins may use this deliberately public compatibility API. HTTP API
+responses expose `Access-Control-Allow-Origin: *`; OPTIONS allows GET/POST/DELETE
+and explicit content-type/key/authorization headers without authentication or
+token consumption. Cookie credentials are never accepted or enabled by CORS.
+WebSocket origin checks permit cross-origin clients; authentication and bounded
+socket admission remain mandatory. Protocol tests exercise a browser Origin;
+this is not yet a rendered-browser SDK acceptance claim.
+
+Evidence: token tests first failed 404 and preflight failed 401. Focused and full
+Go race checks/vet pass. Clock-controlled fixtures prove the exact expiry boundary,
+capacity recovery and drain; 16 competing requests admit exactly one transcript.
+Official Python SDK 2.72.0 issues all three types, consumes batch/realtime tokens,
+and validates token/WS schemas. `contracts/token_smoke.py` also tests token-only
+batch recognition, replay/purpose errors and CORS without any real credentials.
+No response claims key ownership or full authentication parity yet.
 
 No storage-dependent or natural-language semantic transformation is silently
 accepted. Unsupported operations currently remain unimplemented; their exact

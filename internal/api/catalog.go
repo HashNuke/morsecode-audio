@@ -4,6 +4,7 @@ import "net/http"
 
 func (s *Server) catalogRoutes() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("POST /v1/single-use-token/{token_type}", s.issueToken)
 	mux.HandleFunc("POST /v1/text-to-speech/{voice_id}", s.synthesize)
 	mux.HandleFunc("POST /v1/text-to-speech/{voice_id}/stream", s.synthesize)
 	mux.HandleFunc("POST /v1/text-to-speech/{voice_id}/with-timestamps", s.synthesize)

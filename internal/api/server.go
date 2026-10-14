@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync/atomic"
 )
@@ -14,10 +15,11 @@ type Server struct {
 	draining atomic.Bool
 	ttsSlots chan struct{}
 	sockets  *socketSet
+	tokens   *tokenStore
 }
 
 func New() *Server {
-	s := &Server{mux: http.NewServeMux(), ttsSlots: make(chan struct{}, 8), sockets: newSocketSet()}
+	s := &Server{mux: http.NewServeMux(), ttsSlots: make(chan struct{}, 8), sockets: newSocketSet(), tokens: newTokenStore()}
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, 200, map[string]string{"status": "ok"}) })
 	s.mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
 		if s.draining.Load() {
@@ -31,9 +33,23 @@ func New() *Server {
 	return s
 }
 
-func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.mux.ServeHTTP(w, r) }
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// This public compatibility API uses explicit credentials only, never cookies
+	// or ambient browser authentication. All browser origins may use it.
+	if strings.HasPrefix(r.URL.Path, "/v1/") || strings.HasPrefix(r.URL.Path, "/v2/") {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		if r.Method == "OPTIONS" {
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "content-type, xi-api-key, authorization")
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+	}
+	s.mux.ServeHTTP(w, r)
+}
 func (s *Server) Drain() {
 	s.draining.Store(true)
+	s.tokens.drain()
 	s.sockets.drain()
 }
 
@@ -50,6 +66,23 @@ func (s *Server) auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s.draining.Load() {
 			writeError(w, 503, "not_ready", "Server is draining")
+			return
+		}
+		query, err := url.ParseQuery(r.URL.RawQuery)
+		if err != nil {
+			writeError(w, 422, "invalid_request", "Invalid query parameters")
+			return
+		}
+		if values, present := query["token"]; present {
+			if len(values) != 1 || !s.tokens.consume(values[0], speechTokenPurpose(r)) {
+				writeError(w, 401, "invalid_token", "Invalid, expired or already used speech token")
+				return
+			}
+			// Authentication is complete. Keep tokens out of speech options/events.
+			query.Del("token")
+			r = r.Clone(r.Context())
+			r.URL.RawQuery = query.Encode()
+			next.ServeHTTP(w, r)
 			return
 		}
 		if strings.TrimSpace(r.Header.Get("xi-api-key")) == "" {

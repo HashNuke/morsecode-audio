@@ -23,16 +23,19 @@ def signal(text, rate=16000):
     return samples
 
 
-async def run(base_url):
+async def run(base_url, use_token=False):
     spec = json.loads(Path(__file__).with_name("elevenlabs-websockets.json").read_text())["stt"]
     validator = Draft202012Validator({"$ref": "#/components/schemas/V1SpeechToTextRealtimeSubscribe",
                                      "components": spec["components"]})
     client = ElevenLabs(base_url=base_url, api_key="synthetic-sdk-realtime")
-    connection = await client.speech_to_text.realtime.connect({
+    options = {
         "model_id": "scribe_v2_realtime", "audio_format": AudioFormat.PCM_16000,
         "sample_rate": 16000, "commit_strategy": CommitStrategy.MANUAL,
         "include_timestamps": True,
-    })
+    }
+    if use_token:
+        options["token"] = client.tokens.single_use.create("realtime_scribe").token
+    connection = await client.speech_to_text.realtime.connect(options)
     messages = asyncio.Queue()
     for schema in spec["components"]["schemas"].values():
         for name in schema.get("properties", {}).get("message_type", {}).get("enum", []):
@@ -68,7 +71,7 @@ async def run(base_url):
             assert timed["text"] == text
             assert abs(timed["words"][0]["start"] - audio_offset) <= 0.011
             audio_offset += len(pcm) / 32000
-        print("Official SDK realtime STT: two committed turns, split samples, timing order/origin and AsyncAPI schemas passed.")
+        print("Official SDK realtime STT (" + ("token" if use_token else "header") + "): two committed turns, split samples, timing order/origin and AsyncAPI schemas passed.")
     finally:
         await connection.close()
 

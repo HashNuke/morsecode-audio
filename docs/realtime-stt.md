@@ -1,11 +1,13 @@
 # Realtime Morse transcription
 
 `/v1/speech-to-text/realtime` upgrades an authenticated request to the pinned
-Scribe-compatible protocol. A nonempty `xi-api-key` is required at this checkpoint;
-browser token authentication belongs to E. `coder/websocket` v1.8.15 owns framing,
-control messages, read limits and cancellation. The default origin check permits
-same-origin browsers and clients without an Origin header; cross-origin policy
-will be completed with browser authentication.
+Scribe-compatible protocol. Supply a nonempty `xi-api-key` or a single-use
+`realtime_scribe` token through the `token` query parameter. `coder/websocket`
+v1.8.15 owns framing, control messages, read limits and cancellation. The API permits
+cross-origin browsers and clients without an Origin header. The public API uses
+explicit keys or single-use tokens and never cookie authentication. See the
+[authentication ledger](elevenlabs-compatibility.md#authentication-and-unsupported-behavior)
+for token precedence, expiry and replay semantics.
 
 The first event is `session_started` with a random session ID and the actual
 configuration. Send `input_audio_chunk` JSON with `audio_base_64`, `sample_rate`
