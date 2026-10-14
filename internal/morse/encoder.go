@@ -17,6 +17,7 @@ type run struct {
 type Encoder struct {
 	Text          string
 	Samples       int
+	Characters    []Character
 	cfg           Config
 	runs          []run
 	index, offset int
@@ -49,7 +50,9 @@ func NewEncoder(text string, cfg Config) (*Encoder, error) {
 	}
 	for wi, word := range strings.Split(text, " ") {
 		if wi > 0 {
+			start := e.Samples
 			add(false, 7)
+			e.Characters = append(e.Characters, Character{" ", float64(start) / float64(cfg.SampleRate), float64(e.Samples) / float64(cfg.SampleRate)})
 		}
 		for ci, char := range word {
 			pattern, ok := alphabet[char]
@@ -59,6 +62,7 @@ func NewEncoder(text string, cfg Config) (*Encoder, error) {
 			if ci > 0 {
 				add(false, 3)
 			}
+			start := e.Samples
 			for mi, mark := range pattern {
 				if mi > 0 {
 					add(false, 1)
@@ -69,6 +73,7 @@ func NewEncoder(text string, cfg Config) (*Encoder, error) {
 					add(true, 3)
 				}
 			}
+			e.Characters = append(e.Characters, Character{string(char), float64(start) / float64(cfg.SampleRate), float64(e.Samples) / float64(cfg.SampleRate)})
 		}
 	}
 	add(false, 14)

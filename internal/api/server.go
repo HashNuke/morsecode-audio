@@ -11,10 +11,11 @@ import (
 type Server struct {
 	mux      *http.ServeMux
 	draining atomic.Bool
+	ttsSlots chan struct{}
 }
 
 func New() *Server {
-	s := &Server{mux: http.NewServeMux()}
+	s := &Server{mux: http.NewServeMux(), ttsSlots: make(chan struct{}, 8)}
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, 200, map[string]string{"status": "ok"}) })
 	s.mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
 		if s.draining.Load() {

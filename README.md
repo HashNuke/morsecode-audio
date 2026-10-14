@@ -6,7 +6,8 @@ contacts ElevenLabs. Recognition is for Morse tones, not ordinary speech.
 
 ## Development
 
-Use Go 1.26.1 (`asdf install` with the included tool configuration), then:
+Use Go 1.26.1 (`asdf install` with the included tool configuration) and FFmpeg
+with `libmp3lame` and `libopus` encoders (verified with FFmpeg 6.1.1), then:
 
 ```sh
 HOST=127.0.0.1 PORT=8787 go run ./cmd/morsecode-audio
@@ -22,8 +23,10 @@ listener defaults to loopback, requires a valid numeric port and reports bind
 conflicts. SIGTERM stops readiness and drains HTTP requests within five seconds.
 
 Implemented so far: health/readiness, arbitrary-key HTTP authentication, a
-static catalog, explicit PCM synthesis and synchronous PCM16/WAV transcription.
-Compressed audio, timed TTS and WebSockets remain subsequent checkpoints; see [the compatibility ledger](docs/elevenlabs-compatibility.md).
+static catalog, all four HTTP TTS variants and all 28 nonstreaming output formats,
+plus synchronous PCM16/WAV transcription. WebSockets, remaining optional API fields,
+compressed STT and deployment packaging remain subsequent checkpoints; see
+[the compatibility ledger](docs/elevenlabs-compatibility.md).
 No production or hosted compatibility claim is made yet.
 
 ## PCM speech checkpoint
@@ -40,10 +43,29 @@ uv run --with-requirements contracts/requirements.txt \
   python contracts/speech_smoke.py http://127.0.0.1:8787
 ```
 
-Synthesis accepts explicit PCM at 8/16/22.05/24/32/44.1/48 kHz. The MP3 default
-is not available in this checkpoint: request PCM explicitly. Batch recognition
+Synthesis defaults to MP3 at 44.1 kHz / 128 kbps, and also supports PCM, WAV,
+Opus, mu-law and A-law. Batch recognition
 accepts mono PCM16 RIFF/WAV or raw `pcm_s16le_16`. Uploads are bounded to 12 MiB
 in process memory; no temporary upload files are written. Audio is limited to
 300 seconds and text to 4096 bytes. Codec buffers remain bounded while reading
 arbitrary chunks. Uppercase normalization and supported punctuation follow
 [the Morse contract](docs/morse-audio.md).
+
+## HTTP streaming and timestamps
+
+Use `/v1/text-to-speech/morse/stream` for early binary chunks. Add
+`/with-timestamps` to either convert or stream for base64 JSON with original and
+normalized character alignment. Timed streaming uses newline-delimited JSON;
+concatenate decoded audio in response order. Streaming supports the 21 formats
+in the upstream schema (WAV is only available on nonstreaming routes).
+
+```sh
+uv run --with-requirements contracts/requirements.txt \
+  python contracts/tts_smoke.py http://127.0.0.1:8787
+```
+
+Encoding uses bounded memory/pipes; no media is written to disk. At most eight
+HTTP synthesis requests run concurrently; additional work receives 429. Requests
+have a 30-second processing/write deadline, including slow readers. Cancellation
+closes and joins any codec process. See [HTTP output behavior](docs/http-output.md)
+for timing, framing and error semantics.

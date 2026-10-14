@@ -6,7 +6,8 @@ Baseline: official public HTTP OpenAPI retrieved 2026-10-14, content hashes in
 requests, responses, defaults and their transitive schemas. Upstream prose and
 examples are omitted. The snapshot is a contract, not evidence of implementation.
 
-Status: HTTP PCM speech checkpoint; compressed formats and WebSockets remain pending.
+Status: HTTP synthesis/streaming/format checkpoint; WebSockets and remaining
+optional-field semantics remain pending.
 Do not describe this revision as a complete ElevenLabs replacement.
 
 | Operation | Status | Evidence / remaining work |
@@ -16,8 +17,8 @@ Do not describe this revision as a complete ElevenLabs replacement.
 | `GET /v1/models` | implemented for initial TTS model | `TestCatalogAuthentication`, SDK/schema smoke |
 | `GET /v1/voices`, voice lookup/settings/default settings | implemented for one immutable Morse voice | `TestVoiceDiscoveryAndSettings`, SDK/schema smoke |
 | `GET /v2/voices` | initial response only | query/filter/pagination semantics still pending H |
-| HTTP TTS convert | implemented for explicit PCM | `TestHTTPPCMToMultipartTranscript`; SDK PCM round trip |
-| HTTP TTS streaming/timing variants | pending C | binary stream, timing JSON, timing NDJSON; formats below |
+| HTTP TTS convert | implemented for all 28 output formats and MP3 default | independent decode, PCM round trip, SDK default MP3 |
+| HTTP TTS streaming/timing variants | implemented | binary stream, timing JSON/NDJSON; original/normalized alignment, disconnect/deadline cleanup, SDK schemas |
 | TTS single-context WebSocket | pending E | init, incremental text, flush, EOS, audio, final, alignment |
 | TTS multi-context WebSocket | pending E | independent context lifecycle and fair bounded output |
 | Batch multipart STT | implemented for mono PCM16/WAV | independent signal and bidirectional Elixir fixtures, SDK/schema round trip; compressed/multichannel pending H |
@@ -38,8 +39,11 @@ The pinned nonstreaming TTS schema advertises 28 formats: seven PCM and seven WA
 rates (8000, 16000, 22050, 24000, 32000, 44100, 48000), seven MP3 combinations,
 five Opus bitrates at 48000 Hz, `ulaw_8000` and `alaw_8000`. Streaming omits the
 seven WAV values in the upstream schema. Default is `mp3_44100_128`.
-Exact format enums/defaults are in the snapshot. All seven explicit PCM formats are implemented. Other formats remain pending;
-each needs real encoded-output and independent-decoder evidence before acceptance.
+Exact format enums/defaults are in the snapshot. All 28 nonstreaming formats and
+21 streaming formats now have independent decode/packet-clock evidence. See
+[HTTP output behavior and evidence](http-output.md), including source-clock
+alignment and MP3 priming/padding. Optional request transformations and full
+semantic parity remain H work; working formats alone do not establish them.
 
 ## Authentication and unsupported behavior
 
