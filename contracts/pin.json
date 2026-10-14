@@ -1,0 +1,8 @@
+{
+  "source": "https://api.elevenlabs.io/openapi.json",
+  "retrieved": "2026-10-14",
+  "source_sha256": "31127bf70ed6cd74d2d086f6fd165d9a8c08580635e9bc2d94b08402be6c2500",
+  "snapshot_sha256": "d771494b8692b9f91fe154c2980278aed6dc274f84fe6963ab33eb69f523423d",
+  "note": "Speech/discovery paths and transitive schemas; descriptions/examples omitted; no upstream speech calls.",
+  "python_sdk_version": "2.72.0"
+}
