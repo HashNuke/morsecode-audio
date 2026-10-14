@@ -106,6 +106,10 @@ func parseTTSSocketMessage(data []byte) (ttsSocketMessage, error) {
 	if d.Decode(&m) != nil || d.Decode(new(any)) != io.EOF || m.Text == nil {
 		return m, errors.New("invalid_request")
 	}
+	return validateTTSSocketMessage(m)
+}
+
+func validateTTSSocketMessage(m ttsSocketMessage) (ttsSocketMessage, error) {
 	if len(m.Dictionaries) != 0 {
 		return m, errors.New("unsupported_feature")
 	}

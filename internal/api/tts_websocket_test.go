@@ -149,37 +149,49 @@ func TestTTSWebSocketAuthenticationLocations(t *testing.T) {
 	handler := api.New()
 	s := httptest.NewServer(handler)
 	defer s.Close()
-	for _, kind := range []string{"header", "bearer-header", "query-bearer", "initial-key", "initial-hyphen-key", "initial-bearer", "token"} {
-		t.Run(kind, func(t *testing.T) {
-			query := "output_format=pcm_16000"
-			headers := http.Header{"Origin": {"https://browser.example"}}
-			init := map[string]any{"text": " "}
-			switch kind {
-			case "header":
-				headers.Set("xi-api-key", "synthetic")
-			case "bearer-header":
-				headers.Set("Authorization", "Bearer synthetic")
-			case "query-bearer":
-				query += "&authorization=" + url.QueryEscape("Bearer synthetic")
-			case "initial-key":
-				init["xi_api_key"] = "synthetic"
-			case "initial-hyphen-key":
-				init["xi-api-key"] = "synthetic"
-			case "initial-bearer":
-				init["authorization"] = "Bearer synthetic"
-			case "token":
-				query += "&single_use_token=" + url.QueryEscape(issueToken(t, handler, "tts_websocket"))
-			}
-			c, ctx := openTTS(t, s, query, headers)
-			sendTTS(t, ctx, c, init)
-			sendTTS(t, ctx, c, map[string]any{"text": "E", "flush": true})
-			sendTTS(t, ctx, c, map[string]any{"text": ""})
-			var got ttsCapture
-			got.finish(t, ctx, c)
-			if len(got.pcm) != 28800 {
-				t.Fatalf("authenticated E: %d bytes", len(got.pcm))
-			}
-		})
+	for _, route := range []string{"single", "multi"} {
+		for _, kind := range []string{"header", "bearer-header", "query-bearer", "initial-key", "initial-hyphen-key", "initial-bearer", "token"} {
+			t.Run(route+"/"+kind, func(t *testing.T) {
+				query := "output_format=pcm_16000"
+				headers := http.Header{"Origin": {"https://browser.example"}}
+				init := map[string]any{"text": " "}
+				switch kind {
+				case "header":
+					headers.Set("xi-api-key", "synthetic")
+				case "bearer-header":
+					headers.Set("Authorization", "Bearer synthetic")
+				case "query-bearer":
+					query += "&authorization=" + url.QueryEscape("Bearer synthetic")
+				case "initial-key":
+					init["xi_api_key"] = "synthetic"
+				case "initial-hyphen-key":
+					init["xi-api-key"] = "synthetic"
+				case "initial-bearer":
+					init["authorization"] = "Bearer synthetic"
+				case "token":
+					query += "&single_use_token=" + url.QueryEscape(issueToken(t, handler, "tts_websocket"))
+				}
+				var c *websocket.Conn
+				var ctx context.Context
+				if route == "multi" {
+					c, ctx = openMulti(t, s, strings.TrimPrefix(query, "output_format=pcm_16000"), headers)
+				} else {
+					c, ctx = openTTS(t, s, query, headers)
+				}
+				sendTTS(t, ctx, c, init)
+				sendTTS(t, ctx, c, map[string]any{"text": "E", "flush": true})
+				if route == "multi" {
+					sendTTS(t, ctx, c, map[string]any{"close_socket": true})
+				} else {
+					sendTTS(t, ctx, c, map[string]any{"text": ""})
+				}
+				var got ttsCapture
+				got.finish(t, ctx, c)
+				if len(got.pcm) != 28800 {
+					t.Fatalf("authenticated E: %d bytes", len(got.pcm))
+				}
+			})
+		}
 	}
 }
 

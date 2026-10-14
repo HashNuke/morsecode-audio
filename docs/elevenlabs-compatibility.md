@@ -6,8 +6,8 @@ Baseline: official public HTTP OpenAPI retrieved 2026-10-14, content hashes in
 requests, responses, defaults and their transitive schemas. Upstream prose and
 examples are omitted. The snapshot is a contract, not evidence of implementation.
 
-Status: HTTP speech, realtime STT, single-context TTS WS and browser tokens;
-multi-context TTS, remaining authentication and optional-field semantics remain pending.
+Status: HTTP speech, realtime STT, both TTS WebSockets and browser tokens;
+remaining optional-field, input-format and semantic compatibility work is pending.
 Do not describe this revision as a complete ElevenLabs replacement.
 
 | Operation | Status | Evidence / remaining work |
@@ -20,11 +20,11 @@ Do not describe this revision as a complete ElevenLabs replacement.
 | HTTP TTS convert | implemented for all 28 output formats and MP3 default | independent decode, PCM round trip, SDK default MP3 |
 | HTTP TTS streaming/timing variants | implemented | binary stream, timing JSON/NDJSON; original/normalized alignment, disconnect/deadline cleanup, SDK schemas |
 | TTS single-context WebSocket | implemented for the documented Morse profile | init, incremental text, flush, EOS, audio, final, alignment, bounded lifecycle; SDK and Chrome acceptance |
-| TTS multi-context WebSocket | pending E | independent context lifecycle and fair bounded output |
+| TTS multi-context WebSocket | implemented for the documented Morse profile | independent context lifecycle, fair bounded output, flush-close preservation, idle expiry, cancellation/reuse; SDK types/schema and Chrome acceptance |
 | Batch multipart STT | implemented for mono PCM16/WAV | independent signal and bidirectional Elixir fixtures, SDK/schema round trip; compressed/multichannel pending H |
 | Realtime STT WebSocket | implemented for header/token auth and documented Morse options | independent signals at seven formats, repeated manual/VAD commits, timing, keepalive, bounded lifecycle, official SDK/AsyncAPI validation |
-| Bearer/WS initialization authentication | single-context TTS implemented; other applicable routes pending E/H | header/query/initial-message transports, precedence and initialization timeout |
-| Speech single-use tokens | issuance and consumption for all three purposes | expiry, atomic replay rejection, purpose/route scope, restart/drain invalidation and bounded memory; multi-context route pending |
+| Bearer/WS initialization authentication | implemented for both TTS WS routes | header/query/initial-message transports, precedence and initialization timeout; general HTTP/STT use xi-api-key or their documented tokens |
+| Speech single-use tokens | issuance and consumption for all three purposes | expiry, atomic replay rejection, purpose/route scope, restart/drain invalidation and bounded memory; both TTS WS routes consume the same purpose |
 | Browser CORS/origins | implemented for available speech routes | unauthenticated OPTIONS, explicit credentials only, wildcard origin without cookie credentials; cross-origin STT WS fixture |
 | Retained transcript GET/DELETE | decision pending | conflicts with no retained content |
 | Webhook jobs and historical request-ID stitching | decision pending | no persistent jobs/history; proposed explicit error |
@@ -57,7 +57,7 @@ Unknown voice IDs return 404 `voice_not_found`. Missing routes return 404
 `POST /v1/single-use-token/{token_type}` issues `realtime_scribe`, `batch_scribe`
 and `tts_websocket` tokens with the pinned response schema. Batch and realtime
 STT accept their respective token in the `token` query parameter, with no header
-required. Single-context TTS accepts `single_use_token` or header/query/initial
+required. Both TTS WS routes accept `single_use_token` or header/query/initial
 credentials; see [TTS authentication and precedence](tts-websocket.md).
 
 Tokens expire at 15 minutes and consume atomically on successful authentication,
@@ -92,7 +92,8 @@ capacity recovery and drain; 16 competing requests admit exactly one transcript.
 Official Python SDK 2.72.0 issues all three types, consumes batch/realtime tokens,
 and validates token/WS schemas. `contracts/token_smoke.py` also tests token-only
 batch recognition, replay/purpose errors and CORS without any real credentials.
-No response claims key ownership or full authentication parity yet.
+No response claims key ownership. Error/precedence choices remain the explicit
+Morse compatibility profile; complete API semantics still require H review.
 
 No storage-dependent or natural-language semantic transformation is silently
 accepted. Unsupported operations currently remain unimplemented; their exact
@@ -180,3 +181,11 @@ WebSocket framing/library decision: use the maintained
 context-based cancellation, origin checks and read limits. The first STT handler
 pins v1.8.15. See [realtime STT behavior and evidence](realtime-stt.md), including
 the Morse commit profile and pending optional semantic fields.
+
+
+Multi-context lifecycle and browser/container evidence is recorded in
+[multi-context TTS](multi-context-tts.md). The upstream
+[authentication guide](https://elevenlabs.io/docs/api-reference/authentication)
+specifies `xi-api-key` for general HTTP requests. Bearer query/initial fields are
+part of the TTS WS bindings; the STT binding specifies a key header or `token`.
+No additional general HTTP bearer transport is inferred from the TTS bindings.

@@ -26,7 +26,7 @@ func (s *Server) writeTTSJobs(ctx context.Context, cancel context.CancelFunc, so
 				}
 				return
 			}
-			err := s.writeTTSGeneration(ctx, socket, options, g)
+			err := s.writeTTSGeneration(ctx, options, g, func(message map[string]any) error { return socket.write(message) })
 			if err != nil {
 				if ctx.Err() == nil {
 					cancel()
@@ -38,7 +38,7 @@ func (s *Server) writeTTSJobs(ctx context.Context, cancel context.CancelFunc, so
 	}
 }
 
-func (s *Server) writeTTSGeneration(ctx context.Context, socket *speechSocket, options ttsSocketOptions, g *ttsGeneration) error {
+func (s *Server) writeTTSGeneration(ctx context.Context, options ttsSocketOptions, g *ttsGeneration, emit func(map[string]any) error) error {
 	defer g.source.Close()
 	select {
 	case s.ttsSlots <- struct{}{}:
@@ -77,7 +77,7 @@ func (s *Server) writeTTSGeneration(ctx context.Context, socket *speechSocket, o
 			if normalized != nil {
 				message["normalizedAlignment"] = normalized
 			}
-			if err := socket.write(message); err != nil {
+			if err := emit(message); err != nil {
 				return errors.New("output_disconnected")
 			}
 			pending.Reset()

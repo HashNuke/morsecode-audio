@@ -26,8 +26,8 @@ HTTP requests within five seconds.
 Implemented so far: health/readiness, arbitrary-key HTTP authentication, a
 static catalog, all four HTTP TTS variants and all 28 nonstreaming output formats,
 plus synchronous PCM16/WAV transcription, realtime STT, single-context TTS
-WebSockets and browser tokens. Multi-context TTS, remaining authentication and
-optional API fields, and compressed STT remain subsequent checkpoints; see
+WebSockets, multi-context TTS and browser tokens. Optional API fields and
+compressed STT remain subsequent checkpoints; see
 [the compatibility ledger](docs/elevenlabs-compatibility.md).
 No production or hosted compatibility claim is made yet.
 
@@ -99,4 +99,14 @@ See [the protocol, bounds and SDK fixture](docs/tts-websocket.md).
 ```sh
 uv run --python 3.12 --with-requirements contracts/requirements.txt \
   python contracts/tts_websocket_smoke.py http://127.0.0.1:8787
+```
+
+For multiple independent text streams on one socket, use
+`/v1/text-to-speech/morse/multi-stream-input`. Empty text is a context keepalive;
+`close_context` and `close_socket` control their respective lifecycles. See
+[multi-context behavior and acceptance](docs/multi-context-tts.md).
+
+```sh
+uv run --python 3.12 --with-requirements contracts/requirements.txt \
+  python contracts/multi_tts_smoke.py http://127.0.0.1:8787
 ```

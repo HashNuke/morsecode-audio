@@ -26,6 +26,17 @@ async def run(base_url, container):
             assert json.loads(await asyncio.wait_for(tts.recv(), 5)).get("audio")
             # No EOS: codecs must cancel even while awaiting more text.
             sockets.append(tts)
+        uri = urlunsplit(("ws", origin.netloc, "/v1/text-to-speech/morse/multi-stream-input",
+                          "auto_mode=true", ""))
+        multi = await stack.enter_async_context(connect(uri, additional_headers={"xi-api-key": "synthetic-drain"}))
+        for context_id in ["a", "b"]:
+            await multi.send(json.dumps({"context_id": context_id, "text": "ETETETETETETETET"}))
+        seen = set()
+        while len(seen) < 2:
+            message = json.loads(await asyncio.wait_for(multi.recv(), 5))
+            assert message.get("audio") and message["contextId"] in {"a", "b"}
+            seen.add(message["contextId"])
+        sockets.append(multi)
         process = await asyncio.create_subprocess_exec("docker", "stop", "--timeout", "10", container,
                                                        stdout=asyncio.subprocess.PIPE)
 
@@ -43,7 +54,7 @@ async def run(base_url, container):
                                                  stdout=asyncio.subprocess.PIPE)
     stdout, _ = await check.communicate()
     assert check.returncode == 0 and stdout.strip() == b"0"
-    print("SIGTERM closed active STT, PCM TTS and MP3 TTS sockets; the test container exited cleanly.")
+    print("SIGTERM closed active STT, PCM TTS, MP3 TTS and two multi-context encoders; the test container exited cleanly.")
 
 
 if __name__ == "__main__":

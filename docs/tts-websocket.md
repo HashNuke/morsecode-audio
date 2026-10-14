@@ -1,8 +1,8 @@
 # Single-context incremental synthesis
 
 `GET /v1/text-to-speech/{voice_id}/stream-input` accepts the pinned ElevenLabs
-single-context messages. Use voice `morse` and model `morse_v1`. The separate
-`multi-stream-input` route remains checkpoint E work.
+single-context messages. Use voice `morse` and model `morse_v1`. See [multi-context TTS](multi-context-tts.md) for the independent lifecycle
+of `multi-stream-input`.
 
 ## Sequence and output
 
@@ -91,4 +91,4 @@ browser API acceptance, not an audible playback or browser SDK claim.
 
 The production image also passed HTTP/realtime/token regressions and SIGTERM
 with active STT plus open-input PCM and MP3 TTS. It exited 0, without OOM or
-filesystem changes. Multi-context synthesis and hosted acceptance remain open.
+filesystem changes. Multi-context synthesis has separate acceptance evidence; hosted acceptance remains open.

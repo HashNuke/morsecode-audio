@@ -42,6 +42,38 @@
     });
     ttsResults.push(result);
   }
+  const multiUrl = new URL('/v1/text-to-speech/morse/multi-stream-input', wsBase);
+  multiUrl.searchParams.set('output_format', 'pcm_16000');
+  multiUrl.searchParams.set('auto_mode', 'true');
+  multiUrl.searchParams.set('single_use_token', await issue('tts_websocket'));
+  const multi = await new Promise((resolve, reject) => {
+    const socket = new WebSocket(multiUrl);
+    const timer = setTimeout(() => { socket.close(); reject(new Error('Multi TTS timeout')); }, 5000);
+    const bytes = { old: 0, next: 0 }, finals = { old: 0, next: 0 };
+    let interrupted = false;
+    socket.onopen = () => socket.send(JSON.stringify({ context_id: 'old', text: 'E' }));
+    socket.onmessage = event => {
+      const message = JSON.parse(event.data), id = message.contextId;
+      if (message.error || !(id in bytes)) { clearTimeout(timer); socket.close(); reject(new Error('Multi protocol failure')); return; }
+      if (message.isFinal) finals[id]++;
+      if (message.audio) {
+        if (finals[id]) { socket.close(); reject(new Error('Stale multi audio')); return; }
+        bytes[id] += atob(message.audio).length;
+      }
+      if (id === 'old' && message.audio && !interrupted) {
+        interrupted = true;
+        socket.send(JSON.stringify({ context_id: 'old', close_context: true }));
+        socket.send(JSON.stringify({ context_id: 'next', text: 'T', flush: true }));
+      }
+      if (finals.old === 1 && finals.next === 1) socket.send(JSON.stringify({ close_socket: true }));
+    };
+    socket.onerror = () => { clearTimeout(timer); reject(new Error('Multi transport failure')); };
+    socket.onclose = event => {
+      clearTimeout(timer);
+      if (event.code !== 1000 || bytes.old !== 1920 || bytes.next !== 32640 || finals.old !== 1 || finals.next !== 1) reject(new Error('Multi result mismatch'));
+      else resolve({ bytes, finals, closeCode: event.code });
+    };
+  });
   const token = await issue('realtime_scribe');
   const endpoint = new URL('/v1/speech-to-text/realtime', wsBase);
   endpoint.searchParams.set('token', token);
@@ -63,5 +95,5 @@
     socket.onerror = () => { clearTimeout(timer); reject(new Error('STT transport failure')); };
     socket.onclose = () => { clearTimeout(timer); if (final === 'E') resolve(final); else reject(new Error('STT result mismatch')); };
   });
-  return { browser: navigator.userAgent, pageOrigin: location.origin, apiOrigin: base.origin, tts: ttsResults, transcript };
+  return { browser: navigator.userAgent, pageOrigin: location.origin, apiOrigin: base.origin, tts: ttsResults, multi, transcript };
 })();

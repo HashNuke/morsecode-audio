@@ -33,6 +33,7 @@ func New() *Server {
 	s.mux.Handle("/v1/", s.auth(s.catalogRoutes()))
 	s.mux.Handle("/v2/", s.auth(s.catalogRoutes()))
 	s.mux.HandleFunc("GET /v1/text-to-speech/{voice_id}/stream-input", s.ttsWebSocket)
+	s.mux.HandleFunc("GET /v1/text-to-speech/{voice_id}/multi-stream-input", s.ttsMultiWebSocket)
 	return s
 }
 

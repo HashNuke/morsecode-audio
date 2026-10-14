@@ -6,12 +6,14 @@ import (
 	"math"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"unicode"
 
 	"github.com/HashNuke/morsecode-audio/internal/morse"
 )
 
 type ttsGeneration struct {
+	aborted                      atomic.Bool
 	plan                         *morse.StreamEncoder
 	source                       *fragmentSource
 	pending                      string

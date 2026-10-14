@@ -1,9 +1,9 @@
 # Railway deployment
 
 The user deploys this separate repository. The Docker package currently serves
-HTTP discovery, TTS, batch PCM/WAV STT, realtime STT and single-context TTS WS.
-Multi-context TTS and final compatibility/load acceptance are still in progress; use the milestone to decide when to publish the
-complete service. Local container checks do not establish hosted acceptance.
+HTTP discovery, TTS, batch PCM/WAV STT, realtime STT and both TTS WS modes.
+Final compatibility/load acceptance is still in progress; use the milestone to
+decide when to publish the complete service. Local container checks do not establish hosted acceptance.
 
 ## Package and configuration
 
@@ -16,8 +16,8 @@ There is no database, volume, writable upload directory or migration.
 The image's exec-form entrypoint receives SIGTERM directly. Readiness becomes
 false, speech sockets are explicitly canceled/joined, and HTTP shutdown has a
 five-second deadline. Railway gets a ten-second drain allowance. The drain check
-exercises realtime STT and active single-context PCM/MP3 synthesis; multi-context
-coverage remains E work. A restart loses active work and transient tokens.
+exercises realtime STT, active single-context PCM/MP3 synthesis and two
+multi-context MP3 encoders. A restart loses active work and transient tokens.
 
 Railway now uses [Infrastructure as Code](https://docs.railway.com/infrastructure-as-code).
 Its [legacy config reference](https://docs.railway.com/config-as-code/reference)
@@ -73,7 +73,8 @@ instead of silently dropping version constraints.
    synthetic compatibility keys. Inspect logs for startup/shutdown failures without
    enabling body, key or token logging.
 6. Add custom domain `morse-audio.definerun.com` in Railway, copy its supplied DNS
-   CNAME and TXT records to the domain provider, and wait for certificate readiness. Verify HTTPS
+   CNAME and TXT records to the domain provider, and wait for certificate readiness.
+   Verify HTTPS
    and WSS at the custom origin before Vxpipe cutover. Do not guess DNS targets.
 
 | Setting | Value |
@@ -147,4 +148,5 @@ Single-context TTS acceptance adds SDK PCM/default-MP3 streaming through verifie
 local TLS, native Chrome cross-origin first-message/token auth, and concurrent
 STT/PCM-TTS/MP3-TTS SIGTERM drain in the read-only production image. The TTS clients
 leave input open after receiving audio, so successful exit verifies cancellation
-while codecs await more text. Hosted TLS and multi-context behavior remain pending.
+while codecs await more text. Hosted TLS remains pending. Multi-context checks now also pass in the image,
+including browser interruption and active-codec drain.
