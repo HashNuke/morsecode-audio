@@ -6,7 +6,7 @@ Baseline: official public HTTP OpenAPI retrieved 2026-10-14, content hashes in
 requests, responses, defaults and their transitive schemas. Upstream prose and
 examples are omitted. The snapshot is a contract, not evidence of implementation.
 
-Status: initial server/catalog checkpoint. Speech routes are not implemented yet.
+Status: HTTP PCM speech checkpoint; compressed formats and WebSockets remain pending.
 Do not describe this revision as a complete ElevenLabs replacement.
 
 | Operation | Status | Evidence / remaining work |
@@ -16,10 +16,11 @@ Do not describe this revision as a complete ElevenLabs replacement.
 | `GET /v1/models` | implemented for initial TTS model | `TestCatalogAuthentication`, SDK/schema smoke |
 | `GET /v1/voices`, voice lookup/settings/default settings | implemented for one immutable Morse voice | `TestVoiceDiscoveryAndSettings`, SDK/schema smoke |
 | `GET /v2/voices` | initial response only | query/filter/pagination semantics still pending H |
-| Four HTTP TTS variants | pending B/C | binary, streaming, timing JSON, timing NDJSON; formats below |
+| HTTP TTS convert | implemented for explicit PCM | `TestHTTPPCMToMultipartTranscript`; SDK PCM round trip |
+| HTTP TTS streaming/timing variants | pending C | binary stream, timing JSON, timing NDJSON; formats below |
 | TTS single-context WebSocket | pending E | init, incremental text, flush, EOS, audio, final, alignment |
 | TTS multi-context WebSocket | pending E | independent context lifecycle and fair bounded output |
-| Batch multipart STT | pending B/H | formats, timestamps, multichannel, input limits |
+| Batch multipart STT | implemented for mono PCM16/WAV | independent signal and bidirectional Elixir fixtures, SDK/schema round trip; compressed/multichannel pending H |
 | Realtime STT WebSocket | pending D | audio chunks, partials, manual/VAD commits, timed commits, errors |
 | Bearer/WS initialization authentication | pending E | preserve documented auth locations and precedence |
 | Speech single-use tokens | pending E | purpose, expiry, one-time consumption, bounded memory |
@@ -37,7 +38,7 @@ The pinned nonstreaming TTS schema advertises 28 formats: seven PCM and seven WA
 rates (8000, 16000, 22050, 24000, 32000, 44100, 48000), seven MP3 combinations,
 five Opus bitrates at 48000 Hz, `ulaw_8000` and `alaw_8000`. Streaming omits the
 seven WAV values in the upstream schema. Default is `mp3_44100_128`.
-Exact format enums/defaults are in the snapshot. No format is implemented yet;
+Exact format enums/defaults are in the snapshot. All seven explicit PCM formats are implemented. Other formats remain pending;
 each needs real encoded-output and independent-decoder evidence before acceptance.
 
 ## Authentication and unsupported behavior
@@ -85,3 +86,31 @@ implementation package existed. Initial green: focused tests, `go vet ./...`
 and `go test -race ./...` pass. The binary ran on port 18787; the pinned official SDK discovery runner passed
 and validated six response schemas. Missing-key rejection passed. SIGTERM
 terminated the server cleanly. Subsequent behavior has its own red/green record.
+
+### PCM speech evidence
+
+- Initial API red: both new HTTP speech tests returned 404 before handlers existed.
+- Codec red: the implementation package did not exist. Independent square-wave
+  SOS 2 fixtures initially exposed partial-window timing/frequency errors at
+  22.05 kHz; fixed by classifying transition windows by majority active samples.
+  All seven rates now pass with arbitrary byte chunk boundaries.
+- Timestamp red: decoder events had no character timestamps; sample-derived
+  character/word timings now pass independent E/space/T interval checks.
+- SDK regression red: official Python 2.72.0 sends literal JSON `null` for three
+  omitted nullable form fields. A focused test initially returned 422; explicit
+  null now succeeds while unsupported non-null transformations remain rejected.
+- Local Vxpipe integration passes Go → Elixir recognition at four shared rates
+  and Elixir → Go raw PCM transcription. These are opt-in network tests in the
+  owning CallEngine application, not default-suite external dependencies.
+- No language/confidence inference: language defaults to `und`, probability is
+  zero. Required numeric `logprob` is zero for the deterministic accepted
+  codebook lookup (log(1)), not an acoustic confidence estimate. An explicit
+  language label is preserved. Null logprob failed the pinned upstream schema
+  even though the SDK parsed it; the numeric deterministic score passes that
+  contract. This does not claim probabilistic human-speech recognition.
+
+Final PCM checkpoint checks: `go test -race ./...`, `go vet ./...`, official SDK
+speech round trip and the pinned transcription response schema pass. The
+CallEngine local-network interop lane passed two tests (four Go→Elixir rates
+and one Elixir→Go phrase). This does not establish compressed formats, WS,
+configured provider sessions or hosted deployment.
