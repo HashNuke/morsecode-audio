@@ -80,3 +80,26 @@ document. Clients must treat transport failure as incomplete synthesis.
 - Pinned official SDK 2.72.0 consumes all four routes, default MP3, PCM/Opus timed
   variants and original/normalized alignment; both timestamp schemas validate.
 - Race and vet checks pass. These are local checks, not Railway or load results.
+
+## Continuous encoding for text WebSockets
+
+`audio.EncodeLive` accepts a cancellable, unknown-length PCM source and owns its
+lifecycle. It preserves one codec stream across successive text fragments. The
+source must implement `Close` that unblocks `Read`; WS producers must bound their
+queues and total duration. Unlike the finite HTTP encoder, live output cannot
+advertise a byte length or write a WAV header. All 21 streaming formats are covered.
+
+The first live tests timed out for MP3/Opus/G.711: default FFmpeg input probing
+waited for more audio while the producer deliberately kept its input open. For
+live PCM, the format/rate/channel are already known, so a 32-byte probe and zero
+analysis duration avoid that buffering. Every format now emits an actual audio
+packet after at most the supplied 600 ms of PCM, before producer EOF. Independent
+decoding verifies tone energy and duration; this is a pipeline test, not a latency
+benchmark or evidence of completed WebSocket routes.
+
+Closing output or cancelling its context closes the source before joining the
+codec's input copier. Child failure also closes the source before waiting. Tests
+cover starved input, missing codecs, rejected formats, pre-cancelled startup and
+normal PCM EOF. Final cleanup initially turned repeated PCM EOF into a closed-pipe
+error; retaining the terminal read result fixes it. Full race/vet and existing
+finite HTTP format regressions pass. No temporary files or extra storage are used.

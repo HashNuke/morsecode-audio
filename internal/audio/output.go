@@ -76,6 +76,10 @@ type OutputStream struct {
 // close it on every path. PCM input must be a finite, nonblocking reader (the
 // lazy Morse encoder); no network-backed reader or filesystem input is accepted.
 func Encode(ctx context.Context, pcm io.Reader, samples int, f OutputFormat) (*OutputStream, error) {
+	return encode(ctx, pcm, samples, f, nil)
+}
+
+func encode(ctx context.Context, pcm io.Reader, samples int, f OutputFormat, liveInput io.Closer) (*OutputStream, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -86,7 +90,13 @@ func Encode(ctx context.Context, pcm io.Reader, samples int, f OutputFormat) (*O
 		return &OutputStream{io.NopCloser(io.MultiReader(bytes.NewReader(wavHeader(samples, f.Rate)), pcm)), int64(samples)*2 + 44}, nil
 	}
 	ctx, cancel := context.WithCancel(ctx)
-	args := []string{"-nostdin", "-v", "error", "-protocol_whitelist", "pipe", "-f", "s16le", "-ar", strconv.Itoa(f.Rate), "-ac", "1", "-i", "pipe:0", "-map", "0:a:0", "-vn", "-threads", "1"}
+	args := []string{"-nostdin", "-v", "error", "-protocol_whitelist", "pipe", "-f", "s16le", "-ar", strconv.Itoa(f.Rate), "-ac", "1"}
+	if liveInput != nil {
+		// Format/rate/channels are already known. Default stream probing waits
+		// for seconds of PCM, which can deadlock interactive text generation.
+		args = append(args, "-probesize", "32", "-analyzeduration", "0")
+	}
+	args = append(args, "-i", "pipe:0", "-map", "0:a:0", "-vn", "-threads", "1")
 	switch f.Kind {
 	case "mp3":
 		args = append(args, "-c:a", "libmp3lame", "-b:a", strconv.Itoa(f.Bitrate)+"k", "-write_xing", "0", "-id3v2_version", "0", "-f", "mp3")
@@ -115,7 +125,7 @@ func Encode(ctx context.Context, pcm io.Reader, samples int, f OutputFormat) (*O
 		_ = stdout.Close()
 		return nil, errors.New("codec_unavailable")
 	}
-	return &OutputStream{&processStream{stdout: stdout, cmd: cmd, cancel: cancel}, -1}, nil
+	return &OutputStream{&processStream{stdout: stdout, cmd: cmd, cancel: cancel, input: liveInput}, -1}, nil
 }
 
 type processStream struct {
@@ -126,6 +136,7 @@ type processStream struct {
 	waitErr   error
 	closeOnce sync.Once
 	readEnd   error
+	input     io.Closer
 }
 
 func (s *processStream) wait() error {
@@ -142,6 +153,11 @@ func (s *processStream) Read(p []byte) (int, error) {
 		return 0, s.readEnd
 	}
 	n, err := s.stdout.Read(p)
+	if err != nil && s.input != nil {
+		// A child can exit before its input producer. Unblock the stdin copier
+		// before Wait joins it; waiting first could hang on a starved live source.
+		_ = s.input.Close()
+	}
 	if err == io.EOF {
 		if waitErr := s.wait(); waitErr != nil {
 			s.readEnd = waitErr
@@ -155,7 +171,14 @@ func (s *processStream) Read(p []byte) (int, error) {
 }
 
 func (s *processStream) Close() error {
-	s.closeOnce.Do(func() { s.cancel(); _ = s.stdout.Close(); _ = s.wait() })
+	s.closeOnce.Do(func() {
+		s.cancel()
+		if s.input != nil {
+			_ = s.input.Close()
+		}
+		_ = s.stdout.Close()
+		_ = s.wait()
+	})
 	// Cancellation is an expected close outcome. Encoding errors surface in Read.
 	return nil
 }
