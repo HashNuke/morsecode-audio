@@ -4,5 +4,26 @@
   "source_sha256": "31127bf70ed6cd74d2d086f6fd165d9a8c08580635e9bc2d94b08402be6c2500",
   "snapshot_sha256": "d771494b8692b9f91fe154c2980278aed6dc274f84fe6963ab33eb69f523423d",
   "note": "Speech/discovery paths and transitive schemas; descriptions/examples omitted; no upstream speech calls.",
-  "python_sdk_version": "2.72.0"
+  "python_sdk_version": "2.72.0",
+  "websockets": {
+    "tts": {
+      "source": "https://elevenlabs.io/docs/api-reference/text-to-speech/v-1-text-to-speech-voice-id-stream-input",
+      "retrieved": "2026-10-14",
+      "html_sha256": "076091039e96171f6f303e9278e3fbf1c934af4621c0db6dc5525d36a37e9931",
+      "asyncapi_sha256": "2731e1edc519b26d7c7f68d095fa0e38e5cf43b653896fdacf2b50d7398d33a8"
+    },
+    "multi": {
+      "source": "https://elevenlabs.io/docs/api-reference/text-to-speech/v-1-text-to-speech-voice-id-multi-stream-input",
+      "retrieved": "2026-10-14",
+      "html_sha256": "e6099998fff11c257911053f44b5ad961d09a0d0475e5d94fdd41a2091ebc8af",
+      "asyncapi_sha256": "14e73703b3c4738215c1cd653d1891962d9dc149a83e5eb7d748310fdc18534f"
+    },
+    "stt": {
+      "source": "https://elevenlabs.io/docs/api-reference/speech-to-text/v-1-speech-to-text-realtime",
+      "retrieved": "2026-10-14",
+      "html_sha256": "633f4c8766f3a03711760c4622b7f981189e021392f1c4d9c6b8f84e4ac66f62",
+      "asyncapi_sha256": "b7710ab6a1ca17333dc346c87d7170512835019c140ac7848211e4d358390136"
+    }
+  },
+  "websocket_snapshot_sha256": "dd23ff765a4f06bd9371d9ec00cc0c0525ad06cbdfaa4687729d3e88ae35c3be"
 }

@@ -72,8 +72,12 @@ The public upstream API/schema fetch is separate from this local conformance run
 
 The [field inventory](http-field-inventory.md) enumerates every captured HTTP request field.
 
-HTTP OpenAPI does not include the WS protocols. Capture field/message fixtures
-and source digests before implementing their handlers, using these primary pages:
+HTTP OpenAPI does not include WS protocols. The separately captured
+[AsyncAPI snapshot](../contracts/elevenlabs-websockets.json) contains the three
+WS channels and 61 transitive message schemas, including query/header bindings,
+all fields, defaults, enums and error messages. Source/specification digests are
+in the pin manifest. These schema fixtures establish the target before handler
+implementation; they are not passing WS behavior tests. Primary sources:
 
 - [TTS single context](https://elevenlabs.io/docs/api-reference/text-to-speech/v-1-text-to-speech-voice-id-stream-input).
 - [TTS multi context](https://elevenlabs.io/docs/api-reference/text-to-speech/v-1-text-to-speech-voice-id-multi-stream-input).
@@ -114,3 +118,23 @@ speech round trip and the pinned transcription response schema pass. The
 CallEngine local-network interop lane passed two tests (four Go→Elixir rates
 and one Elixir→Go phrase). This does not establish compressed formats, WS,
 configured provider sessions or hosted deployment.
+
+### Proposed no-retention responses (owner decision pending)
+
+| Request | Proposed response | Rationale |
+| --- | --- | --- |
+| Transcript GET/DELETE | HTTP 501, `detail.status=unsupported_feature` | no retained transcript objects exist |
+| Batch `webhook=true` | HTTP 501, `detail.status=unsupported_feature` | no durable job or configured webhook registry |
+| Nonempty TTS previous/next request IDs | HTTP 422, `detail.status=unsupported_feature` | no request-history lookup |
+| `enable_logging` true/false | accepted without content retention | neither value enables storage |
+
+Implement those errors only as explicit compatibility exceptions. The owner was
+asked to resolve the no-storage conflict; this proposal is not an approval or a
+full-parity claim. Semantic features unrelated to deterministic Morse (such as
+entity extraction/transcript rewriting) similarly need an explicit feature
+mapping or unsupported response in H.
+
+WebSocket framing/library decision: use the maintained
+[coder/websocket](https://github.com/coder/websocket) implementation with
+context-based cancellation, origin checks and read limits. Pin its dependency
+version when introducing WS handlers; do not build a second RFC implementation.
