@@ -16,6 +16,25 @@ then renders lazily into caller-sized chunks. Arbitrary byte reads, including
 split samples, produce identical audio. No full synthesized audio buffer is
 required. Oscillator phase restarts at the beginning of each mark.
 
+The incremental text planner (`StreamEncoder`) is the transport-free foundation
+for TTS WebSockets. `Append` returns finite lazy PCM fragments without an utterance
+tail. It carries the pending letter/word boundary across messages and whitespace-only
+fragments; `Finish` adds one 14-unit tail. Empty streams produce no audio. A single
+owner submits text in order and renders the returned readers in the same order.
+Each fragment reports its own sample count and normalized character times on the
+cumulative stream clock. Original-text alignment and WS scheduling remain handler
+work, not capabilities claimed by this planner.
+
+Text-byte and audio-duration limits apply across the complete stream, reserving
+room for final silence. Invalid fragments leave prior state intact; finalization
+is one-way. The planner retains counters and a pending-gap flag, not past text or
+audio. Callers must bound their own queues of returned readers. Tests first failed
+because the planner did not exist. Independent E/T tone/gap intervals now pass;
+84 deterministic randomized fragmentation cases across seven rates match finite
+PCM and alignment, including Unicode whitespace and odd read boundaries. Atomic
+failure, cumulative limits, empty streams and repeated finalization checks pass
+under the race detector, as do the full Go suite and vet.
+
 The decoder retains an analysis window, up to eight pending marks and bounded
 transcript/alignment data. Its 10-ms detector checks signal energy and zero
 crossing frequency, allowing 100 Hz frequency and one-window timing tolerance.
