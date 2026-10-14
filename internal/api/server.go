@@ -2,6 +2,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -12,10 +13,11 @@ type Server struct {
 	mux      *http.ServeMux
 	draining atomic.Bool
 	ttsSlots chan struct{}
+	sockets  *socketSet
 }
 
 func New() *Server {
-	s := &Server{mux: http.NewServeMux(), ttsSlots: make(chan struct{}, 8)}
+	s := &Server{mux: http.NewServeMux(), ttsSlots: make(chan struct{}, 8), sockets: newSocketSet()}
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, 200, map[string]string{"status": "ok"}) })
 	s.mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
 		if s.draining.Load() {
@@ -30,7 +32,19 @@ func New() *Server {
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.mux.ServeHTTP(w, r) }
-func (s *Server) Drain()                                           { s.draining.Store(true) }
+func (s *Server) Drain() {
+	s.draining.Store(true)
+	s.sockets.drain()
+}
+
+func (s *Server) WaitSockets(ctx context.Context) error {
+	select {
+	case <-s.sockets.done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
 
 func (s *Server) auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -4,13 +4,14 @@ package morse
 import "errors"
 
 type Config struct {
-	SampleRate         int
-	UnitMillis         int
-	Frequency          int
-	Amplitude          int
-	MaxTextBytes       int
-	MaxDurationSeconds int
-	AutoCommit         bool
+	SampleRate          int
+	UnitMillis          int
+	Frequency           int
+	Amplitude           int
+	MaxTextBytes        int
+	MaxDurationSeconds  int
+	AutoCommit          bool
+	CommitSilenceMillis int
 }
 
 func DefaultConfig() Config {
@@ -18,6 +19,9 @@ func DefaultConfig() Config {
 }
 
 func (c Config) validate() error {
+	if c.CommitSilenceMillis != 0 && (c.CommitSilenceMillis < c.UnitMillis*14 || c.CommitSilenceMillis > 30000) {
+		return errors.New("invalid_morse_commit_silence")
+	}
 	validRate := false
 	for _, r := range []int{8000, 16000, 22050, 24000, 32000, 44100, 48000} {
 		if c.SampleRate == r {

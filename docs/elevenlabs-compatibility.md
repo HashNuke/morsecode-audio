@@ -6,8 +6,8 @@ Baseline: official public HTTP OpenAPI retrieved 2026-10-14, content hashes in
 requests, responses, defaults and their transitive schemas. Upstream prose and
 examples are omitted. The snapshot is a contract, not evidence of implementation.
 
-Status: HTTP synthesis/streaming/format checkpoint; WebSockets and remaining
-optional-field semantics remain pending.
+Status: HTTP speech and realtime STT checkpoints; TTS WebSockets, browser
+authentication and remaining optional-field semantics remain pending.
 Do not describe this revision as a complete ElevenLabs replacement.
 
 | Operation | Status | Evidence / remaining work |
@@ -22,7 +22,7 @@ Do not describe this revision as a complete ElevenLabs replacement.
 | TTS single-context WebSocket | pending E | init, incremental text, flush, EOS, audio, final, alignment |
 | TTS multi-context WebSocket | pending E | independent context lifecycle and fair bounded output |
 | Batch multipart STT | implemented for mono PCM16/WAV | independent signal and bidirectional Elixir fixtures, SDK/schema round trip; compressed/multichannel pending H |
-| Realtime STT WebSocket | pending D | audio chunks, partials, manual/VAD commits, timed commits, errors |
+| Realtime STT WebSocket | implemented for header auth and documented Morse options | independent signals at seven formats, repeated manual/VAD commits, timing, keepalive, bounded lifecycle, official SDK/AsyncAPI validation |
 | Bearer/WS initialization authentication | pending E | preserve documented auth locations and precedence |
 | Speech single-use tokens | pending E | purpose, expiry, one-time consumption, bounded memory |
 | Retained transcript GET/DELETE | decision pending | conflicts with no retained content |
@@ -140,5 +140,6 @@ mapping or unsupported response in H.
 
 WebSocket framing/library decision: use the maintained
 [coder/websocket](https://github.com/coder/websocket) implementation with
-context-based cancellation, origin checks and read limits. Pin its dependency
-version when introducing WS handlers; do not build a second RFC implementation.
+context-based cancellation, origin checks and read limits. The first STT handler
+pins v1.8.15. See [realtime STT behavior and evidence](realtime-stt.md), including
+the Morse commit profile and pending optional semantic fields.

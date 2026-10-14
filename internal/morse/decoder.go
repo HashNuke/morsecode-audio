@@ -145,11 +145,26 @@ func (d *Decoder) windowStep(pcm []byte, events *[]Event) error {
 		if d.duration >= d.unit()*7 {
 			d.gap = true
 		}
-		if d.cfg.AutoCommit && d.duration >= d.unit()*14 {
+		threshold := d.unit() * 14
+		if d.cfg.CommitSilenceMillis > 0 {
+			threshold = d.cfg.SampleRate * d.cfg.CommitSilenceMillis / 1000
+		}
+		// Transition windows quantize the detected boundary by at most one
+		// analysis window. Honor a complete tail even at nonintegral 10-ms rates.
+		if d.cfg.AutoCommit && d.duration >= threshold-d.tolerance() {
 			return d.finish(events)
 		}
 	}
 	return nil
+}
+
+// Samples and SilentSamples report the processed signal clock, not wall time.
+func (d *Decoder) Samples() int { return d.total }
+func (d *Decoder) SilentSamples() int {
+	if d.kind == 1 {
+		return d.duration
+	}
+	return 0
 }
 
 func (d *Decoder) classify(pcm []byte) (int, error) {

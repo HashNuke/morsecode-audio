@@ -20,12 +20,14 @@ go vet ./...
 Environment files are examples only; the application reads process variables and
 does not load `.env` automatically. Select another free port when needed. The
 listener defaults to loopback, requires a valid numeric port and reports bind
-conflicts. SIGTERM stops readiness and drains HTTP requests within five seconds.
+conflicts. SIGTERM stops readiness, closes admitted speech sockets and drains
+HTTP requests within five seconds.
 
 Implemented so far: health/readiness, arbitrary-key HTTP authentication, a
 static catalog, all four HTTP TTS variants and all 28 nonstreaming output formats,
-plus synchronous PCM16/WAV transcription. WebSockets, remaining optional API fields,
-compressed STT and deployment packaging remain subsequent checkpoints; see
+plus synchronous PCM16/WAV transcription and realtime STT WebSockets. TTS
+WebSockets, browser authentication, optional API fields and compressed STT remain
+subsequent checkpoints; see
 [the compatibility ledger](docs/elevenlabs-compatibility.md).
 No production or hosted compatibility claim is made yet.
 
@@ -73,3 +75,15 @@ HTTP synthesis requests run concurrently; additional work receives 429. Requests
 have a 30-second processing/write deadline, including slow readers. Cancellation
 closes and joins any codec process. See [HTTP output behavior](docs/http-output.md)
 for timing, framing and error semantics.
+
+## Realtime STT
+
+Use `/v1/speech-to-text/realtime` with the same synthetic `xi-api-key`. The
+Scribe-compatible client sends base64 PCM or mu-law chunks and receives partials,
+committed transcripts and optional timing. Manual commits and Morse silence
+commits support repeated turns on one socket. See [the protocol and limits](docs/realtime-stt.md).
+
+```sh
+uv run --with-requirements contracts/requirements.txt \
+  python contracts/realtime_smoke.py http://127.0.0.1:8787
+```

@@ -61,6 +61,6 @@ func run() error {
 			_ = server.Close()
 			return err
 		}
-		return nil
+		return handler.WaitSockets(deadline)
 	}
 }

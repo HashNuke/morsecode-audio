@@ -35,8 +35,9 @@ jobs:
           python contracts/catalog_smoke.py http://127.0.0.1:8787
           python contracts/speech_smoke.py http://127.0.0.1:8787
           python contracts/tts_smoke.py http://127.0.0.1:8787
+          python contracts/realtime_smoke.py http://127.0.0.1:8787
           python contracts/format_smoke.py http://127.0.0.1:8787
-          docker stop --timeout 10 morse-audio-ci
+          python contracts/drain_smoke.py http://127.0.0.1:8787 morse-audio-ci
           test "$(docker inspect --format '{{.State.ExitCode}}' morse-audio-ci)" = 0
       - if: always()
         run: docker rm -f morse-audio-ci || true

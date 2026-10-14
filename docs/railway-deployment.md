@@ -1,7 +1,7 @@
 # Railway deployment
 
 The user deploys this separate repository. The Docker package currently serves
-HTTP discovery, TTS and batch PCM/WAV STT. WebSockets and final compatibility/load
+HTTP discovery, TTS, batch PCM/WAV STT and realtime STT. TTS WebSockets and final compatibility/load
 acceptance are still in progress; use the milestone to decide when to publish the
 complete service. Local container checks do not establish hosted acceptance.
 
@@ -14,9 +14,10 @@ reads Railway's `PORT` at runtime. HTTP and future WS routes share that listener
 There is no database, volume, writable upload directory or migration.
 
 The image's exec-form entrypoint receives SIGTERM directly. Readiness becomes
-false and HTTP shutdown has a five-second deadline. Railway gets a ten-second
-drain allowance. Explicit WS shutdown will be added with WS support; do not infer
-it from HTTP shutdown. A restart loses active work and future transient tokens.
+false, speech sockets are explicitly canceled/joined, and HTTP shutdown has a
+five-second deadline. Railway gets a ten-second drain allowance. The drain check
+currently exercises realtime STT and must expand to both TTS WS modes in E.
+A restart loses active work and future transient tokens.
 
 Railway now uses [Infrastructure as Code](https://docs.railway.com/infrastructure-as-code).
 Its [legacy config reference](https://docs.railway.com/config-as-code/reference)
@@ -122,6 +123,12 @@ exited with status 0 without OOM, the container filesystem diff was empty, and
 the PCM SDK round trip passed again after restart. The container was then removed.
 The isolated IaC module compiles/vets and its rendered graph matches the table;
 no authenticated Railway plan/apply or hosted verification has been performed.
+
+Checkpoint D adds a passing SDK realtime STT check in the same read-only image.
+`contracts/drain_smoke.py` opens an STT socket, stops the explicitly named local
+test container and verifies socket closure plus exit status 0. HTTP TTS and batch
+STT regressions also pass. The container was removed after verification. Future
+TTS WebSockets still need equivalent active-connection drain checks.
 
 - Failed startup: check codec availability/pins and listen address/port. No
   successful readiness response is served before codec checks complete.
