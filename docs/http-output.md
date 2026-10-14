@@ -11,7 +11,9 @@ All 28 captured nonstreaming output formats work. The default is
 rendered directly; compressed/G.711 encodings use FFmpeg through input/output
 pipes, with only the pipe protocol enabled. No filenames, network sources or
 caller-controlled command arguments reach the codec process. CI installs FFmpeg;
-the Railway image must pin its codec environment before deployment acceptance.
+the Docker image pins FFmpeg 5.1.9, LAME 3.100 and Opus 1.3.1 on a digest-pinned
+Debian base. Its actual HTTP output passes all 49 binary-format cases with an
+independent host decoder, alongside the pinned SDK checks.
 
 | Format | Wire representation | Content type |
 | --- | --- | --- |

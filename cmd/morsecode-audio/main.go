@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/HashNuke/morsecode-audio/internal/api"
+	"github.com/HashNuke/morsecode-audio/internal/audio"
 	"github.com/HashNuke/morsecode-audio/internal/config"
 )
 
@@ -25,6 +26,12 @@ func main() {
 
 func run() error {
 	cfg, err := config.Load(os.Getenv)
+	if err != nil {
+		return err
+	}
+	codecContext, cancelCodecs := context.WithTimeout(context.Background(), 10*time.Second)
+	err = audio.CheckCodecs(codecContext)
+	cancelCodecs()
 	if err != nil {
 		return err
 	}

@@ -29,6 +29,10 @@ compressed STT and deployment packaging remain subsequent checkpoints; see
 [the compatibility ledger](docs/elevenlabs-compatibility.md).
 No production or hosted compatibility claim is made yet.
 
+The pinned Docker image and current Railway IaC configuration are described in
+[the deployment runbook](docs/railway-deployment.md). The user performs hosted
+deployment and endpoint cutover after the remaining implementation gates pass.
+
 ## PCM speech checkpoint
 
 ```sh
