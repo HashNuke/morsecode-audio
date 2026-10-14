@@ -53,7 +53,7 @@ def run(base_url):
         assert preflight.status_code == 204
         assert "access-control-allow-credentials" not in preflight.headers
     asyncio.run(realtime(base_url, use_token=True))
-    print("Token SDK/schema, batch token-only use, replay/purpose rejection and CORS passed; TTS token consumption awaits TTS WebSockets.")
+    print("Token SDK/schema, batch token-only use, replay/purpose rejection and CORS passed; TTS consumption is covered by tts_websocket_smoke.py.")
 
 
 if __name__ == "__main__":

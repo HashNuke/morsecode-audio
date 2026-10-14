@@ -94,7 +94,11 @@ func (s *socketSet) drain() {
 }
 
 func (s *speechSocket) read() (websocket.MessageType, []byte, error) {
-	ctx, cancel := context.WithTimeout(s.ctx, s.set.idle)
+	return s.readWithin(s.set.idle)
+}
+
+func (s *speechSocket) readWithin(timeout time.Duration) (websocket.MessageType, []byte, error) {
+	ctx, cancel := context.WithTimeout(s.ctx, timeout)
 	defer cancel()
 	return s.conn.Read(ctx)
 }

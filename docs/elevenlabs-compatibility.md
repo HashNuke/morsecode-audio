@@ -6,8 +6,8 @@ Baseline: official public HTTP OpenAPI retrieved 2026-10-14, content hashes in
 requests, responses, defaults and their transitive schemas. Upstream prose and
 examples are omitted. The snapshot is a contract, not evidence of implementation.
 
-Status: HTTP speech, realtime STT and STT browser tokens; TTS WebSockets,
-their authentication and remaining optional-field semantics remain pending.
+Status: HTTP speech, realtime STT, single-context TTS WS and browser tokens;
+multi-context TTS, remaining authentication and optional-field semantics remain pending.
 Do not describe this revision as a complete ElevenLabs replacement.
 
 | Operation | Status | Evidence / remaining work |
@@ -19,12 +19,12 @@ Do not describe this revision as a complete ElevenLabs replacement.
 | `GET /v2/voices` | initial response only | query/filter/pagination semantics still pending H |
 | HTTP TTS convert | implemented for all 28 output formats and MP3 default | independent decode, PCM round trip, SDK default MP3 |
 | HTTP TTS streaming/timing variants | implemented | binary stream, timing JSON/NDJSON; original/normalized alignment, disconnect/deadline cleanup, SDK schemas |
-| TTS single-context WebSocket | pending E | init, incremental text, flush, EOS, audio, final, alignment |
+| TTS single-context WebSocket | implemented for the documented Morse profile | init, incremental text, flush, EOS, audio, final, alignment, bounded lifecycle; SDK and Chrome acceptance |
 | TTS multi-context WebSocket | pending E | independent context lifecycle and fair bounded output |
 | Batch multipart STT | implemented for mono PCM16/WAV | independent signal and bidirectional Elixir fixtures, SDK/schema round trip; compressed/multichannel pending H |
 | Realtime STT WebSocket | implemented for header/token auth and documented Morse options | independent signals at seven formats, repeated manual/VAD commits, timing, keepalive, bounded lifecycle, official SDK/AsyncAPI validation |
-| Bearer/WS initialization authentication | pending E | preserve documented auth locations and precedence |
-| Speech single-use tokens | issuance for all three purposes; batch/realtime consumption implemented | expiry, atomic replay rejection, purpose/route scope, restart/drain invalidation and bounded memory; TTS consumption awaits WS handlers |
+| Bearer/WS initialization authentication | single-context TTS implemented; other applicable routes pending E/H | header/query/initial-message transports, precedence and initialization timeout |
+| Speech single-use tokens | issuance and consumption for all three purposes | expiry, atomic replay rejection, purpose/route scope, restart/drain invalidation and bounded memory; multi-context route pending |
 | Browser CORS/origins | implemented for available speech routes | unauthenticated OPTIONS, explicit credentials only, wildcard origin without cookie credentials; cross-origin STT WS fixture |
 | Retained transcript GET/DELETE | decision pending | conflicts with no retained content |
 | Webhook jobs and historical request-ID stitching | decision pending | no persistent jobs/history; proposed explicit error |
@@ -57,7 +57,8 @@ Unknown voice IDs return 404 `voice_not_found`. Missing routes return 404
 `POST /v1/single-use-token/{token_type}` issues `realtime_scribe`, `batch_scribe`
 and `tts_websocket` tokens with the pinned response schema. Batch and realtime
 STT accept their respective token in the `token` query parameter, with no header
-required. TTS token consumption and bearer/initial-message auth remain E work.
+required. Single-context TTS accepts `single_use_token` or header/query/initial
+credentials; see [TTS authentication and precedence](tts-websocket.md).
 
 Tokens expire at 15 minutes and consume atomically on successful authentication,
 before payload validation or socket upgrade. A failed admitted operation therefore
@@ -81,8 +82,9 @@ responses expose `Access-Control-Allow-Origin: *`; OPTIONS allows GET/POST/DELET
 and explicit content-type/key/authorization headers without authentication or
 token consumption. Cookie credentials are never accepted or enabled by CORS.
 WebSocket origin checks permit cross-origin clients; authentication and bounded
-socket admission remain mandatory. Protocol tests exercise a browser Origin;
-this is not yet a rendered-browser SDK acceptance claim.
+socket admission remain mandatory. Chrome 154 passes cross-origin token issuance,
+first-message/token TTS and token STT using the browser fixture. This establishes
+native browser API behavior, not acceptance of every browser SDK.
 
 Evidence: token tests first failed 404 and preflight failed 401. Focused and full
 Go race checks/vet pass. Clock-controlled fixtures prove the exact expiry boundary,

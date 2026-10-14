@@ -8,18 +8,20 @@ import (
 	"net/url"
 	"strings"
 	"sync/atomic"
+	"time"
 )
 
 type Server struct {
-	mux      *http.ServeMux
-	draining atomic.Bool
-	ttsSlots chan struct{}
-	sockets  *socketSet
-	tokens   *tokenStore
+	mux            *http.ServeMux
+	draining       atomic.Bool
+	ttsSlots       chan struct{}
+	sockets        *socketSet
+	tokens         *tokenStore
+	ttsInitTimeout time.Duration
 }
 
 func New() *Server {
-	s := &Server{mux: http.NewServeMux(), ttsSlots: make(chan struct{}, 8), sockets: newSocketSet(), tokens: newTokenStore()}
+	s := &Server{mux: http.NewServeMux(), ttsSlots: make(chan struct{}, 8), sockets: newSocketSet(), tokens: newTokenStore(), ttsInitTimeout: 5 * time.Second}
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, 200, map[string]string{"status": "ok"}) })
 	s.mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
 		if s.draining.Load() {
@@ -30,6 +32,7 @@ func New() *Server {
 	})
 	s.mux.Handle("/v1/", s.auth(s.catalogRoutes()))
 	s.mux.Handle("/v2/", s.auth(s.catalogRoutes()))
+	s.mux.HandleFunc("GET /v1/text-to-speech/{voice_id}/stream-input", s.ttsWebSocket)
 	return s
 }
 

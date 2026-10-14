@@ -25,5 +25,6 @@
       "asyncapi_sha256": "b7710ab6a1ca17333dc346c87d7170512835019c140ac7848211e4d358390136"
     }
   },
-  "websocket_snapshot_sha256": "dd23ff765a4f06bd9371d9ec00cc0c0525ad06cbdfaa4687729d3e88ae35c3be"
+  "websocket_snapshot_sha256": "dd23ff765a4f06bd9371d9ec00cc0c0525ad06cbdfaa4687729d3e88ae35c3be",
+  "python_websockets_version": "17.2"
 }

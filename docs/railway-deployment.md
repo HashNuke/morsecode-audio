@@ -1,8 +1,8 @@
 # Railway deployment
 
 The user deploys this separate repository. The Docker package currently serves
-HTTP discovery, TTS, batch PCM/WAV STT and realtime STT. TTS WebSockets and final compatibility/load
-acceptance are still in progress; use the milestone to decide when to publish the
+HTTP discovery, TTS, batch PCM/WAV STT, realtime STT and single-context TTS WS.
+Multi-context TTS and final compatibility/load acceptance are still in progress; use the milestone to decide when to publish the
 complete service. Local container checks do not establish hosted acceptance.
 
 ## Package and configuration
@@ -10,14 +10,14 @@ complete service. Local container checks do not establish hosted acceptance.
 The multistage Dockerfile pins Go/Debian image digests and FFmpeg, LAME, Opus and CA
 package versions. It builds independently of Vxpipe and runs as UID/GID 65532.
 The binary checks actual codec output before listening, binds `HOST=0.0.0.0`, and
-reads Railway's `PORT` at runtime. HTTP and future WS routes share that listener.
+reads Railway's `PORT` at runtime. HTTP and WS routes share that listener.
 There is no database, volume, writable upload directory or migration.
 
 The image's exec-form entrypoint receives SIGTERM directly. Readiness becomes
 false, speech sockets are explicitly canceled/joined, and HTTP shutdown has a
 five-second deadline. Railway gets a ten-second drain allowance. The drain check
-currently exercises realtime STT and must expand to both TTS WS modes in E.
-A restart loses active work and future transient tokens.
+exercises realtime STT and active single-context PCM/MP3 synthesis; multi-context
+coverage remains E work. A restart loses active work and transient tokens.
 
 Railway now uses [Infrastructure as Code](https://docs.railway.com/infrastructure-as-code).
 Its [legacy config reference](https://docs.railway.com/config-as-code/reference)
@@ -73,7 +73,7 @@ instead of silently dropping version constraints.
    synthetic compatibility keys. Inspect logs for startup/shutdown failures without
    enabling body, key or token logging.
 6. Add custom domain `morse-audio.definerun.com` in Railway, copy its supplied DNS
-   record to the domain provider, and wait for certificate readiness. Verify HTTPS
+   CNAME and TXT records to the domain provider, and wait for certificate readiness. Verify HTTPS
    and WSS at the custom origin before Vxpipe cutover. Do not guess DNS targets.
 
 | Setting | Value |
@@ -128,7 +128,7 @@ Checkpoint D adds a passing SDK realtime STT check in the same read-only image.
 `contracts/drain_smoke.py` opens an STT socket, stops the explicitly named local
 test container and verifies socket closure plus exit status 0. HTTP TTS and batch
 STT regressions also pass. The container was removed after verification. Future
-TTS WebSockets still need equivalent active-connection drain checks.
+multi-context TTS still needs equivalent active-connection drain checks.
 
 - Failed startup: check codec availability/pins and listen address/port. No
   successful readiness response is served before codec checks complete.
@@ -142,3 +142,9 @@ TTS WebSockets still need equivalent active-connection drain checks.
 - Hosted acceptance remains pending until the user deploys: HTTPS/WSS, all API
   families, configured rooms, disconnect, restart/drain and outage recovery must
   identify the exact deployed revisions and test outcomes.
+
+Single-context TTS acceptance adds SDK PCM/default-MP3 streaming through verified
+local TLS, native Chrome cross-origin first-message/token auth, and concurrent
+STT/PCM-TTS/MP3-TTS SIGTERM drain in the read-only production image. The TTS clients
+leave input open after receiving audio, so successful exit verifies cancellation
+while codecs await more text. Hosted TLS and multi-context behavior remain pending.

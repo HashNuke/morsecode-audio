@@ -11,14 +11,25 @@ import (
 // decoder or an untrusted-upload parser. Packet boundaries let timed JSON carry
 // incremental audio without retaining a complete encoded response.
 type Packets struct {
-	input   io.Reader
-	format  OutputFormat
-	samples int64
-	preSkip int64
+	input       io.Reader
+	format      OutputFormat
+	samples     int64
+	preSkip     int64
+	packetBytes int
 }
 
 func NewPackets(input io.Reader, format OutputFormat) *Packets {
 	return &Packets{input: input, format: format}
+}
+
+// NewLivePackets avoids waiting for a large raw-audio block when the producer
+// has only one short Morse character available. Encoded formats retain frames.
+func NewLivePackets(input io.Reader, format OutputFormat) *Packets {
+	width := 1
+	if format.Kind == "pcm" {
+		width = 2
+	}
+	return &Packets{input: input, format: format, packetBytes: format.Rate / 50 * width}
 }
 
 func (p *Packets) Next() ([]byte, float64, error) {
@@ -28,7 +39,11 @@ func (p *Packets) Next() ([]byte, float64, error) {
 	case "opus":
 		return p.opus()
 	default:
-		data := make([]byte, 4096)
+		size := p.packetBytes
+		if size == 0 {
+			size = 4096
+		}
+		data := make([]byte, size)
 		n, err := io.ReadFull(p.input, data)
 		if err != nil && err != io.ErrUnexpectedEOF {
 			return nil, 0, err

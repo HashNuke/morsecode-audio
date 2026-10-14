@@ -25,9 +25,9 @@ HTTP requests within five seconds.
 
 Implemented so far: health/readiness, arbitrary-key HTTP authentication, a
 static catalog, all four HTTP TTS variants and all 28 nonstreaming output formats,
-plus synchronous PCM16/WAV transcription, realtime STT WebSockets and STT browser
-tokens. TTS WebSockets and their authentication, optional API fields and compressed STT remain
-subsequent checkpoints; see
+plus synchronous PCM16/WAV transcription, realtime STT, single-context TTS
+WebSockets and browser tokens. Multi-context TTS, remaining authentication and
+optional API fields, and compressed STT remain subsequent checkpoints; see
 [the compatibility ledger](docs/elevenlabs-compatibility.md).
 No production or hosted compatibility claim is made yet.
 
@@ -71,7 +71,7 @@ uv run --with-requirements contracts/requirements.txt \
 ```
 
 Encoding uses bounded memory/pipes; no media is written to disk. At most eight
-HTTP synthesis requests run concurrently; additional work receives 429. Requests
+HTTP/WS synthesis jobs run concurrently; additional work receives 429. Requests
 have a 30-second processing/write deadline, including slow readers. Cancellation
 closes and joins any codec process. See [HTTP output behavior](docs/http-output.md)
 for timing, framing and error semantics.
@@ -86,4 +86,17 @@ commits support repeated turns on one socket. See [the protocol and limits](docs
 ```sh
 uv run --with-requirements contracts/requirements.txt \
   python contracts/realtime_smoke.py http://127.0.0.1:8787
+```
+
+## Incremental TTS WebSocket
+
+Use `/v1/text-to-speech/morse/stream-input` for incremental text, flush and
+end-input. Authenticate with a header, first-message key or single-use TTS token.
+Audio arrives as base64 with character alignment; EOS produces one `isFinal`
+marker and a normal close. Flush keeps the connection usable for another phrase.
+See [the protocol, bounds and SDK fixture](docs/tts-websocket.md).
+
+```sh
+uv run --python 3.12 --with-requirements contracts/requirements.txt \
+  python contracts/tts_websocket_smoke.py http://127.0.0.1:8787
 ```
