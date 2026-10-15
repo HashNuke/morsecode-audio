@@ -1,5 +1,8 @@
 # Load testing
 
+For measured single-session latency, metric interpretation and optimization
+findings, see the [realtime latency review](latency-review.md).
+
 The downloadable binary includes the load client. Pick one of four services and
 an explicit HTTP(S) base URL:
 
