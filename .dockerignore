@@ -1,4 +1,5 @@
 *
+!VERSION
 !go.mod
 !go.sum
 !cmd/

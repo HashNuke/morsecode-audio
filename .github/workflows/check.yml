@@ -12,6 +12,8 @@ jobs:
           go-version-file: go.mod
           cache: false
       - run: test -z "$(gofmt -l cmd internal)"
+      - run: bash -n bin/loadtest bin/build-release bin/bump-version bin/release
+      - run: python3 scripts/test_release.py
       - run: go vet ./...
       - run: go test -race ./...
       - run: go build -o /tmp/morse-smoke ./cmd/smoke
@@ -26,3 +28,41 @@ jobs:
           test "$(docker inspect --format '{{.State.ExitCode}}' morse-audio-ci)" = 0
       - if: always()
         run: docker rm -f morse-audio-ci || true
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: go
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Match the tag to the committed version
+        run: test "$GITHUB_REF_NAME" = "v$(cat VERSION)"
+      - name: Build six platform archives and checksums
+        run: bin/build-release /tmp/morse-release
+      - name: Smoke the packaged Linux binary
+        run: |
+          set -euo pipefail
+          mkdir /tmp/morse-package
+          tar -xzf "/tmp/morse-release/morsecode-audio_$(cat VERSION)_linux_amd64.tar.gz" -C /tmp/morse-package
+          test "$(/tmp/morse-package/morsecode-audio version)" = "morsecode-audio $(cat VERSION)"
+          /tmp/morse-package/morsecode-audio serve --host 127.0.0.1 --port 8788 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          curl --retry 20 --retry-connrefused --retry-delay 1 --fail http://127.0.0.1:8788/readyz
+          go run ./cmd/smoke -base-url http://127.0.0.1:8788
+          kill -TERM "$server_pid"
+          wait "$server_pid"
+          trap - EXIT
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" /tmp/morse-release/* \
+            --verify-tag --title "MorseCode Audio $GITHUB_REF_NAME" \
+            --notes-file docs/release-notes.md

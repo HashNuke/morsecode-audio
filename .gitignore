@@ -1,5 +1,9 @@
 /bin/*
 !/bin/loadtest
+!/bin/build-release
+!/bin/bump-version
+!/bin/release
+/dist/
 /coverage.out
 .env
 *.test

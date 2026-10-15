@@ -17,17 +17,17 @@ import (
 )
 
 func main() {
-	if err := run(); err != nil {
+	cfg, serve, err := parseCommand(os.Args[1:], os.Getenv, os.Stdout)
+	if err == nil && serve {
+		err = run(cfg)
+	}
+	if err != nil {
 		slog.Error("server stopped", "error", err)
 		os.Exit(1)
 	}
 }
 
-func run() error {
-	cfg, err := config.Load(os.Getenv)
-	if err != nil {
-		return err
-	}
+func run(cfg config.Config) error {
 	listener, err := net.Listen("tcp", cfg.Address())
 	if err != nil {
 		return fmt.Errorf("bind listener: %w", err)
