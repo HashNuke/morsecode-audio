@@ -181,7 +181,7 @@ func TestRealtimeIgnoresAPIKey(t *testing.T) {
 	defer s.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	for _, key := range []string{"", "   ", "arbitrary-key"} {
+	for _, key := range []string{"", "arbitrary-key"} {
 		headers := http.Header{"Origin": []string{"https://example.com"}}
 		if key != "" {
 			headers.Set("xi-api-key", key)

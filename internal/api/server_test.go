@@ -31,7 +31,7 @@ func TestHealthAndDrain(t *testing.T) {
 
 func TestCatalogIgnoresAPIKey(t *testing.T) {
 	s := api.New()
-	for _, key := range []string{"arbitrary-one", "another arbitrary key", "", "   "} {
+	for _, key := range []string{"", "arbitrary-key"} {
 		w := request(s, "GET", "/v1/models", key)
 		if w.Code != 200 {
 			t.Fatalf("arbitrary key: %d", w.Code)

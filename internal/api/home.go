@@ -43,6 +43,13 @@ func referenceBlocks(text string) []referenceBlock {
 	return blocks
 }
 
+func linkRepository(text string) template.HTML {
+	const url = "https://github.com/HashNuke/morsecode-audio"
+	// Only the authored repository URL becomes markup; all prose stays escaped.
+	return template.HTML(strings.ReplaceAll(template.HTMLEscapeString(text), url,
+		`<a href="`+url+`">GitHub HashNuke/morsecode-audio</a>`))
+}
+
 // Render once from the same reference served to agents, with no
 // JavaScript, external assets or per-request template work.
 var homepage = func() []byte {
@@ -63,7 +70,7 @@ var homepage = func() []byte {
 		})
 	}
 	var rendered bytes.Buffer
-	if err := template.Must(template.New("home").Parse(homeTemplate)).Execute(&rendered, data); err != nil {
+	if err := template.Must(template.New("home").Funcs(template.FuncMap{"linkRepository": linkRepository}).Parse(homeTemplate)).Execute(&rendered, data); err != nil {
 		panic(err)
 	}
 	return rendered.Bytes()

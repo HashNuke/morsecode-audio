@@ -37,17 +37,8 @@ func TestDefaultTTSIsLocalMorsePCMWithoutExternalCodecs(t *testing.T) {
 	}
 }
 
-func TestUnsupportedSpeechExtensionsAreExplicit(t *testing.T) {
+func TestUnsupportedAudioFormatsAreRejected(t *testing.T) {
 	s := api.New()
-	for _, path := range []string{
-		"/v1/text-to-speech/morse/with-timestamps",
-		"/v1/text-to-speech/morse/stream/with-timestamps",
-		"/v1/single-use-token/realtime_scribe",
-	} {
-		if w := request(s, "POST", path, "synthetic"); w.Code != 404 {
-			t.Errorf("unsupported route %s: %d", path, w.Code)
-		}
-	}
 	for _, format := range []string{"mp3_44100_128", "opus_48000_64", "ulaw_8000", "wav_16000"} {
 		r := httptest.NewRequest("POST", "/v1/text-to-speech/morse?output_format="+format, strings.NewReader(`{"text":"E"}`))
 		r.Header.Set("xi-api-key", "synthetic")

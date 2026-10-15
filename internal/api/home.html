@@ -76,7 +76,7 @@
     <header>
       <h1>MorseCode Audio API</h1>
       <p class="resources">
-        <a href="https://github.com/HashNuke/morsecode-audio">GitHub</a>
+        <a href="https://github.com/HashNuke/morsecode-audio">GitHub HashNuke/morsecode-audio</a>
         &middot; <a href="/llms.txt">Plain text / for agents</a>
       </p>
       {{template "blocks" .Intro}}
@@ -112,5 +112,5 @@
 {{define "blocks"}}{{range .}}
 {{if .Code}}<pre tabindex="0" aria-label="{{.Language}} example"><code class="language-{{.Language}}">{{.Text}}</code></pre>
 {{else if .Items}}<ol>{{range .Items}}<li>{{.}}</li>{{end}}</ol>
-{{else}}<p>{{.Text}}</p>{{end}}
+{{else}}<p>{{linkRepository .Text}}</p>{{end}}
 {{end}}{{end}}

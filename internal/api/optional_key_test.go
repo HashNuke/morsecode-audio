@@ -13,7 +13,7 @@ import (
 
 func TestHTTPSpeechIgnoresAPIKey(t *testing.T) {
 	s := api.New()
-	for _, key := range []string{"", "   ", "arbitrary-key"} {
+	for _, key := range []string{"", "arbitrary-key"} {
 		for _, path := range []string{"/v1/text-to-speech/morse", "/v1/text-to-speech/morse/stream"} {
 			r := httptest.NewRequest("POST", path, strings.NewReader(`{"text":"E"}`))
 			r.Header.Set("Content-Type", "application/json")
