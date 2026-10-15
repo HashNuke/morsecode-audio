@@ -6,41 +6,58 @@
   <meta name="color-scheme" content="light">
   <meta name="description" content="MorseCode Audio API documentation: streaming text-to-audio and realtime audio-to-text. Requests, formats and examples for people and agents.">
   <title>MorseCode Audio API</title>
+  <link rel="preload" href="/assets/inter-variable.woff2" as="font" type="font/woff2" crossorigin>
   <style>
+    @font-face {
+      font-family: Inter;
+      src: url('/assets/inter-variable.woff2') format('woff2');
+      font-weight: 100 900;
+      font-display: swap;
+    }
     :root { color-scheme: light; }
     * { box-sizing: border-box; }
     body {
       margin: 0;
       background: #fff;
       color: #222;
-      font: 15px/1.7 ui-monospace, SFMono-Regular, Menlo,
-        Consolas, "Liberation Mono", monospace;
+      font: 16px/1.75 Inter, system-ui, sans-serif;
     }
     main {
-      max-width: 60ch;
+      width: calc(100% - 40px);
+      max-width: 80ch;
       margin: 64px auto;
       padding: 0;
     }
-    h1 { font-size: 1.6rem; line-height: 1.3; margin: 0 0 12px; }
-    .resources { margin: 0 0 24px; }
-    h2 { font-size: 1rem; line-height: 1.5; margin: 0 0 20px; }
+    h1 { font-size: clamp(1.8rem, 5vw, 2.5rem); font-weight: 650; letter-spacing: -0.03em; line-height: 1.15; margin: 0 0 16px; }
+    .resources { margin: 0 0 32px; font-size: 0.875rem; }
+    h2 { font-size: 1.375rem; font-weight: 600; letter-spacing: -0.02em; line-height: 1.4; margin: 0 0 20px; }
+    p { margin: 0 0 20px; overflow-wrap: anywhere; }
     pre {
-      font: inherit;
+      font: 0.875rem/1.7 ui-monospace, SFMono-Regular, Menlo,
+        Consolas, "Liberation Mono", monospace;
       white-space: pre-wrap;
       overflow-wrap: anywhere;
-      margin: 0;
+      margin: 0 0 24px;
+      padding: 18px 20px;
+      background: #f5f6f7;
+      border-radius: 6px;
     }
+    code { font: inherit; }
+    ol { padding-left: 24px; margin: 0 0 24px; }
+    ol li { padding-left: 4px; margin: 8px 0; }
     a { color: #2259a3; text-underline-offset: 3px; }
     a:hover { color: #153665; }
     a:focus-visible { outline: 2px solid #2259a3; outline-offset: 4px; }
     ::selection { background: #dce9fa; color: #222; }
     nav { margin-top: 24px; }
-    nav ul { list-style: none; padding: 0; margin: 20px 0 0; }
+    nav ul { list-style: none; padding: 0; margin: 20px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 24px; }
     nav li { margin: 4px 0; }
     section { border-top: 1px solid #ddd; padding-top: 28px; margin-top: 40px; scroll-margin-top: 24px; }
     footer { border-top: 1px solid #ddd; margin-top: 48px; padding-top: 24px; }
     @media (max-width: 640px) {
-      main { margin: 32px 20px; }
+      main { margin: 32px auto; }
+      nav ul { grid-template-columns: 1fr; }
+      pre { padding: 14px; }
     }
     @media print {
       main { margin: 0 auto; }
@@ -57,7 +74,7 @@
         <a href="https://github.com/HashNuke/morsecode-audio">GitHub</a>
         &middot; <a href="/llms.txt">Plain text / for agents</a>
       </p>
-      <pre>{{.Intro}}</pre>
+      {{template "blocks" .Intro}}
       <nav aria-label="Documentation">
         <ul>{{range .Sections}}
           <li><a href="#{{.ID}}">{{.Title}}</a></li>{{end}}
@@ -67,7 +84,7 @@
     {{range .Sections}}
     <section id="{{.ID}}" aria-labelledby="{{.ID}}-title">
       <h2 id="{{.ID}}-title">{{.Title}}</h2>
-      <pre>{{.Body}}</pre>
+      {{template "blocks" .Body}}
     </section>
     {{end}}
     <footer>
@@ -77,3 +94,8 @@
   </main>
 </body>
 </html>
+{{define "blocks"}}{{range .}}
+{{if .Code}}<pre><code class="language-{{.Language}}">{{.Text}}</code></pre>
+{{else if .Items}}<ol>{{range .Items}}<li>{{.}}</li>{{end}}</ol>
+{{else}}<p>{{.Text}}</p>{{end}}
+{{end}}{{end}}

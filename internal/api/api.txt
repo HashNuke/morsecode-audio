@@ -1,77 +1,96 @@
 # MorseCode Audio API
 
-Text to Morse audio. Morse audio to text.
-An ElevenLabs-shaped API, with no account required.
+Text to Morse audio. Morse audio to text. An ElevenLabs-shaped API, with no
+account required.
 
-This API produces and reads Morse tones, not human speech.
-Requests, audio and transcripts are not stored.
+This API produces and reads Morse tones, not human speech. Requests, audio and
+transcripts are not stored.
 
 ## Quick start
 
+```text
 Base URL:
 https://morsecode.vxpipe.com
+```
 
 These shell examples use curl. Run them in order.
 
+```bash
 BASE=https://morsecode.vxpipe.com
 TTS="$BASE/v1/text-to-speech/morse"
+```
 
+```bash
 curl --fail-with-body --no-buffer \
   "$TTS/stream?output_format=pcm_16000" \
   -H 'Content-Type: application/json' \
   -d '{"text":"SOS","model_id":"morse_v1"}' \
   -o sos.pcm
+```
 
-The result is raw audio, not JSON or a WAV file.
-To listen with ffplay (part of FFmpeg):
+The result is raw audio, not JSON or a WAV file. To listen with ffplay (part of
+FFmpeg):
 
+```bash
 ffplay -f s16le -ar 16000 -ch_layout mono sos.pcm
+```
 
 ## Text to audio
 
+```http
 POST /v1/text-to-speech/morse/stream
 Content-Type: application/json
+```
 
+```json
 {
   "text": "SOS",
   "model_id": "morse_v1"
 }
+```
 
-text: required string. ASCII letters, digits, whitespace
-and these punctuation marks are supported:
+text: required string. ASCII letters, digits, whitespace and these punctuation
+marks are supported:
 . , : ? ' - / ( ) " = + @
 
+```text
 Letters become uppercase. Other characters are rejected.
 model_id: optional; use morse_v1.
 voice_id: always morse (the path segment above).
+```
 
+```text
 Optional query parameter: output_format
 Default: pcm_16000
 Also supported: pcm_8000, pcm_24000, pcm_48000
+```
 
-200 response: audio/pcm, mono signed 16-bit little-endian
-samples at the selected rate. There is no file header.
-Read the response body incrementally as bytes arrive.
-Network chunks need not align with sample boundaries;
-carry any trailing byte into the next chunk.
+200 response: audio/pcm, mono signed 16-bit little-endian samples at the
+selected rate. There is no file header. Read the response body incrementally as
+bytes arrive. Network chunks need not align with sample boundaries; carry any
+trailing byte into the next chunk.
 
-The request contains the full text; audio is streamed.
-Realtime TTS over WebSocket is not implemented.
-For a response with Content-Length, use the same request
-at POST /v1/text-to-speech/morse (without /stream).
+The request contains the full text; audio is streamed. Realtime TTS over
+WebSocket is not implemented. For a response with Content-Length, use the same
+request at POST /v1/text-to-speech/morse (without /stream).
 
 ## Audio to text
 
+```http
 POST /v1/speech-to-text
 Content-Type: multipart/form-data
+```
 
 Transcribe the file from the quick start:
 
+```bash
 curl --fail-with-body "$BASE/v1/speech-to-text" \
   -F 'model_id=morse_stt_v1' \
   -F 'file_format=pcm_s16le_16' \
   -F 'file=@sos.pcm'
+```
 
+```text
 Required fields: file, model_id.
 model_id: morse_stt_v1.
 file_format: pcm_s16le_16 for raw mono 16 kHz PCM16;
@@ -79,32 +98,38 @@ use other (the default) for a mono PCM16 WAV file.
 WAV sample rates: 8000, 16000, 22050, 24000, 32000,
 44100 or 48000 Hz.
 Let your HTTP client set the multipart boundary.
+```
 
-200 response: application/json. Read text for the result
-("SOS" in this example). Other fields:
+200 response: application/json. Read text for the result ("SOS" in this
+example). Other fields:
 
+```text
 language_code         "und" unless supplied
 language_probability  0 (not a confidence score)
 audio_duration_secs   input duration in seconds
 words                 timestamped word/spacing objects
+```
 
-Each words entry has text, type, start, end and logprob.
-Times are seconds from the start of the input audio.
-Optional timestamps_granularity: word (default),
-character (adds characters per entry), or none.
-Silence returns empty text, not an invented transcript.
+Each words entry has text, type, start, end and logprob. Times are seconds from
+the start of the input audio. Optional timestamps_granularity: word (default),
+character (adds characters per entry), or none. Silence returns empty text, not
+an invented transcript.
 
 ## Realtime audio to text
 
 WebSocket endpoint:
-wss://morsecode.vxpipe.com
-/v1/speech-to-text/realtime
 
-Join the origin and path; append these query parameters:
+```text
+wss://morsecode.vxpipe.com/v1/speech-to-text/realtime
+```
 
+Append these query parameters:
+
+```text
 model_id=morse_stt_v1
 audio_format=pcm_16000
 commit_strategy=manual
+```
 
 Connect directly from a browser or server-side client.
 
@@ -116,83 +141,90 @@ Connect directly from a browser or server-side client.
 
 Chunk message (replace BASE64_PCM with encoded bytes):
 
+```json
 {
   "message_type": "input_audio_chunk",
   "audio_base_64": "BASE64_PCM",
   "sample_rate": 16000,
   "commit": false
 }
+```
 
-All four fields are required. Encode raw PCM bytes with
-standard base64. Do not include a WAV header or data URL.
-640 bytes is 20 ms of mono 16 kHz PCM16.
-audio_format also accepts pcm_8000, pcm_24000 and
-pcm_48000; sample_rate must match the selected format.
+All four fields are required. Encode raw PCM bytes with standard base64. Do not
+include a WAV header or data URL. 640 bytes is 20 ms of mono 16 kHz PCM16.
+audio_format also accepts pcm_8000, pcm_24000 and pcm_48000; sample_rate must
+match the selected format.
 
-To finish a manual turn, send the last chunk with
-commit: true, or send this after the last chunk:
+To finish a manual turn, send the last chunk with commit: true, or send this
+after the last chunk:
 
+```json
 {
   "message_type": "input_audio_chunk",
   "audio_base_64": "",
   "sample_rate": 16000,
   "commit": true
 }
+```
 
 Transcript events include these fields:
 
+```json
 {
   "message_type": "partial_transcript",
   "text": "SO"
 }
+```
 
+```json
 {
   "message_type": "committed_transcript",
   "text": "SOS"
 }
+```
 
-Partial text is provisional: replace it, do not append
-each partial. Only committed text completes a turn.
-Empty commits do not emit a transcript.
+Partials arrive character by character after a letter gap (180 ms). Each event
+contains the full text so far: S, then SO, then SOS. A word gap adds a space
+when the next character arrives. Large input chunks can produce several events
+together.
+
+Partial text is provisional: replace it, do not append each partial. Only
+committed text completes a turn. Empty commits do not emit a transcript.
 
 For automatic commits, set commit_strategy=vad and
-vad_silence_threshold_secs=0.84. Send actual PCM silence
-after a turn. Waiting without audio does not advance
-the decoder. This detects Morse gaps, not human speech.
+vad_silence_threshold_secs=0.84. Send actual PCM silence after a turn. Waiting
+without audio does not advance the decoder. This detects Morse gaps, not human
+speech.
 
-Optional include_timestamps=true adds a
-committed_transcript_with_timestamps event after the
-ordinary committed event. It contains text, words and
+Optional include_timestamps=true adds a committed_transcript_with_timestamps
+event after the ordinary committed event. It contains text, words and
 language_code. Do not count it as a second turn.
 
-Send a message at least every 30 seconds. For an idle
-keepalive, use an empty audio chunk with commit: false.
-On disconnect, uncommitted text is lost. Reconnect with
-a fresh session; there is no resume or replay history.
+Send a message at least every 30 seconds. For an idle keepalive, use an empty
+audio chunk with commit: false. On disconnect, uncommitted text is lost.
+Reconnect with a fresh session; there is no resume or replay history.
 
 ## Audio profile and limits
 
-International Morse timing at 20 WPM (PARIS standard):
-dot 60 ms, dash 180 ms, gap within a letter 60 ms,
-gap between letters 180 ms, gap between words 420 ms.
-PARIS plus its word gap is 50 dot units = 3 seconds.
-This is standard 1/3/7 spacing, at a fixed speed.
+International Morse timing at 20 WPM (PARIS standard): dot 60 ms, dash 180 ms,
+gap within a letter 60 ms, gap between letters 180 ms, gap between words 420 ms.
+PARIS plus its word gap is 50 dot units = 3 seconds. This is standard 1/3/7
+spacing, at a fixed speed.
 
-The 700 Hz pitch is our audio profile choice, not a
-requirement of PARIS timing. Use it for recognition.
+The 700 Hz pitch is our audio profile choice, not a requirement of PARIS timing.
+Use it for recognition.
 
-At the end of each TTS response, 840 ms of silence
-lets automatic STT distinguish a completed turn from
-a word gap. This 14-unit tail is API-specific, not a
-Morse spacing rule. For example, one PARIS response
-is 3.42 seconds including its tail; word-to-word
-timing within a longer response remains 20 WPM.
+At the end of each TTS response, 840 ms of silence lets automatic STT
+distinguish a completed turn from a word gap. This 14-unit tail is API-specific,
+not a Morse spacing rule. For example, one PARIS response is 3.42 seconds
+including its tail; word-to-word timing within a longer response remains 20 WPM.
 
 Timing references: ITU-R M.1677-1, section 2, and
 ARRL's Morse timing standard:
 https://www.itu.int/rec/R-REC-M.1677-1-200910-I/en
 https://www.arrl.org/files/file/Technology/x9004008.pdf
 
+```text
 Text                     4096 UTF-8 bytes
 Synthesized duration     300 seconds per request
 Batch audio upload       12 MiB
@@ -203,44 +235,48 @@ Decoded PCM per message  256 KiB
 WebSocket message        512 KiB
 WebSocket session        1 hour
 Idle timeout             30 seconds
+```
 
-MP3, human speech, voice cloning and the rest of the
-ElevenLabs platform are not supported. Use the routes
-and fields documented here; do not assume SDK parity.
+MP3, human speech, voice cloning and the rest of the ElevenLabs platform are not
+supported. Use the routes and fields documented here; do not assume SDK parity.
 
 ## Errors and retries
 
 HTTP errors use application/json:
 
+```json
 {
   "detail": {
     "status": "unsupported_output_format",
     "message": "Unsupported output format"
   }
 }
+```
 
+```text
 404  Unknown API route or voice; check the path.
 413  Batch upload too large; send a smaller file.
 422  Invalid input; fix the format, fields or model.
 429  Capacity is busy; retry with bounded backoff.
 503  Server is draining; retry with bounded backoff.
+```
 
-Check the status before treating a response as PCM.
-If a stream ends early, discard the incomplete audio
-before retrying. Stop reading/close the connection to
-cancel a request. There is no idempotency-key support.
+Check the status before treating a response as PCM. If a stream ends early,
+discard the incomplete audio before retrying. Stop reading/close the connection
+to cancel a request. There is no idempotency-key support.
 
-After a WebSocket upgrade, failures are JSON events
-with message_type (such as input_error) and error text,
-followed by connection close. Correct invalid audio
+After a WebSocket upgrade, failures are JSON events with message_type (such as
+input_error) and error text, followed by connection close. Correct invalid audio
 before reconnecting; do not retry bad input unchanged.
 
 ## Discovery and health
 
+```http
 GET /v1/models    TTS model list (morse_v1)
 GET /v1/voices    Voice list (morse)
 GET /healthz     Process health
 GET /readyz      Readiness; 503 while draining
+```
 
-For agents: GET /llms.txt returns this reference as
-plain text. No browser or JavaScript is needed.
+For agents: GET /llms.txt returns this reference as plain text. No browser or
+JavaScript is needed.

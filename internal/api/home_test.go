@@ -25,8 +25,8 @@ func TestPublicDocumentation(t *testing.T) {
 		t.Fatal("agent documentation must be plain text")
 	}
 	for i, line := range strings.Split(plain.Body.String(), "\n") {
-		if len([]rune(line)) > 60 {
-			t.Errorf("documentation line %d exceeds 60 characters", i+1)
+		if len([]rune(line)) > 80 {
+			t.Errorf("documentation line %d exceeds 80 characters", i+1)
 		}
 	}
 	if w := request(s, "GET", "/missing", ""); w.Code != 404 {
@@ -34,5 +34,19 @@ func TestPublicDocumentation(t *testing.T) {
 	}
 	if w := request(s, "GET", "/v1/models", ""); w.Code != 200 {
 		t.Fatal("API discovery must be public too")
+	}
+}
+
+func TestDocumentationTypography(t *testing.T) {
+	s := api.New()
+	w := request(s, "GET", "/", "")
+	for _, fragment := range []string{"<p>This API produces", "<pre><code class=\"language-bash\">curl", "<ol>", "font-src 'self'"} {
+		if !strings.Contains(w.Body.String()+w.Header().Get("Content-Security-Policy"), fragment) {
+			t.Errorf("homepage missing %q", fragment)
+		}
+	}
+	font := request(s, "GET", "/assets/inter-variable.woff2", "")
+	if font.Code != 200 || font.Header().Get("Content-Type") != "font/woff2" || !strings.HasPrefix(font.Body.String(), "wOF2") {
+		t.Fatal("homepage font must be served locally as WOFF2")
 	}
 }
