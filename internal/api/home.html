@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="Morse audio API documentation: streaming text-to-audio and realtime audio-to-text. Requests, formats and examples for people and agents.">
+  <title>Morse audio API</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #fff;
+      color: #222;
+      font: 15px/1.7 ui-monospace, SFMono-Regular, Menlo,
+        Consolas, "Liberation Mono", monospace;
+    }
+    main {
+      max-width: 60ch;
+      margin: 64px auto;
+      padding: 0;
+    }
+    h1 { font-size: 1.6rem; line-height: 1.3; margin: 0 0 24px; }
+    h2 { font-size: 1rem; line-height: 1.5; margin: 0 0 20px; }
+    pre {
+      font: inherit;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      margin: 0;
+    }
+    a { color: #2259a3; text-underline-offset: 3px; }
+    a:hover { color: #153665; }
+    a:focus-visible { outline: 2px solid #2259a3; outline-offset: 4px; }
+    ::selection { background: #dce9fa; color: #222; }
+    nav { margin-top: 24px; }
+    nav ul { list-style: none; padding: 0; margin: 20px 0 0; }
+    nav li { margin: 4px 0; }
+    section { border-top: 1px solid #ddd; padding-top: 28px; margin-top: 40px; scroll-margin-top: 24px; }
+    footer { border-top: 1px solid #ddd; margin-top: 48px; padding-top: 24px; }
+    @media (max-width: 640px) {
+      main { margin: 32px 20px; }
+    }
+    @media print {
+      main { margin: 0 auto; }
+      nav { display: none; }
+      section { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Morse audio API</h1>
+      <pre>{{.Intro}}</pre>
+      <nav aria-label="Documentation">
+        <a href="/llms.txt">Plain text / for agents</a>
+        <ul>{{range .Sections}}
+          <li><a href="#{{.ID}}">{{.Title}}</a></li>{{end}}
+        </ul>
+      </nav>
+    </header>
+    {{range .Sections}}
+    <section id="{{.ID}}" aria-labelledby="{{.ID}}-title">
+      <h2 id="{{.ID}}-title">{{.Title}}</h2>
+      <pre>{{.Body}}</pre>
+    </section>
+    {{end}}
+    <footer>
+      <a href="https://github.com/HashNuke/morsecode-audio">Source on GitHub</a>
+      &middot; <a href="#">Back to top</a>
+    </footer>
+  </main>
+</body>
+</html>

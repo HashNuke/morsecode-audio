@@ -19,6 +19,8 @@ type Server struct {
 
 func New() *Server {
 	s := &Server{mux: http.NewServeMux(), ttsSlots: make(chan struct{}, 8), sockets: newSocketSet()}
+	s.mux.HandleFunc("GET /{$}", home)
+	s.mux.HandleFunc("GET /llms.txt", reference)
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, 200, map[string]string{"status": "ok"}) })
 	s.mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
 		if s.draining.Load() {

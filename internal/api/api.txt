@@ -1,0 +1,249 @@
+# Morse audio API
+
+Text to Morse audio. Morse audio to text.
+An ElevenLabs-shaped API, with no account required.
+
+This API produces and reads Morse tones, not human speech.
+Requests, audio and transcripts are not stored.
+
+## Quick start
+
+Base URL:
+https://morsecode-audio.up.railway.app
+
+These shell examples use curl. Run them in order.
+
+BASE=https://morsecode-audio.up.railway.app
+TTS="$BASE/v1/text-to-speech/morse"
+
+curl --fail-with-body --no-buffer \
+  "$TTS/stream?output_format=pcm_16000" \
+  -H 'xi-api-key: example-key' \
+  -H 'Content-Type: application/json' \
+  -d '{"text":"SOS","model_id":"morse_v1"}' \
+  -o sos.pcm
+
+The result is raw audio, not JSON or a WAV file.
+To listen with ffplay (part of FFmpeg):
+
+ffplay -f s16le -ar 16000 -ch_layout mono sos.pcm
+
+## Authentication
+
+Send this header on every /v1/ request, including the
+WebSocket handshake:
+
+xi-api-key: example-key
+
+Any nonempty value works. No signup or real ElevenLabs
+key is needed. This is protocol compatibility, not
+access control. Do not send a valuable secret.
+
+This page, /llms.txt, /healthz and /readyz are public.
+
+## Text to audio
+
+POST /v1/text-to-speech/morse/stream
+Content-Type: application/json
+
+{
+  "text": "SOS",
+  "model_id": "morse_v1"
+}
+
+text: required string. ASCII letters, digits, whitespace
+and these punctuation marks are supported:
+. , : ? ' - / ( ) " = + @
+
+Letters become uppercase. Other characters are rejected.
+model_id: optional; use morse_v1.
+voice_id: always morse (the path segment above).
+
+Optional query parameter: output_format
+Default: pcm_16000
+Also supported: pcm_8000, pcm_24000, pcm_48000
+
+200 response: audio/pcm, mono signed 16-bit little-endian
+samples at the selected rate. There is no file header.
+Read the response body incrementally as bytes arrive.
+Network chunks need not align with sample boundaries;
+carry any trailing byte into the next chunk.
+
+The request contains the full text; audio is streamed.
+Realtime TTS over WebSocket is not implemented.
+For a response with Content-Length, use the same request
+at POST /v1/text-to-speech/morse (without /stream).
+
+## Audio to text
+
+POST /v1/speech-to-text
+Content-Type: multipart/form-data
+
+Transcribe the file from the quick start:
+
+curl --fail-with-body "$BASE/v1/speech-to-text" \
+  -H 'xi-api-key: example-key' \
+  -F 'model_id=morse_stt_v1' \
+  -F 'file_format=pcm_s16le_16' \
+  -F 'file=@sos.pcm'
+
+Required fields: file, model_id.
+model_id: morse_stt_v1.
+file_format: pcm_s16le_16 for raw mono 16 kHz PCM16;
+use other (the default) for a mono PCM16 WAV file.
+WAV sample rates: 8000, 16000, 22050, 24000, 32000,
+44100 or 48000 Hz.
+Let your HTTP client set the multipart boundary.
+
+200 response: application/json. Read text for the result
+("SOS" in this example). Other fields:
+
+language_code         "und" unless supplied
+language_probability  0 (not a confidence score)
+audio_duration_secs   input duration in seconds
+words                 timestamped word/spacing objects
+
+Each words entry has text, type, start, end and logprob.
+Times are seconds from the start of the input audio.
+Optional timestamps_granularity: word (default),
+character (adds characters per entry), or none.
+Silence returns empty text, not an invented transcript.
+
+## Realtime audio to text
+
+WebSocket endpoint:
+wss://morsecode-audio.up.railway.app
+/v1/speech-to-text/realtime
+
+Join the origin and path; append these query parameters:
+
+model_id=morse_stt_v1
+audio_format=pcm_16000
+commit_strategy=manual
+
+Use a WebSocket client that can set xi-api-key in the
+upgrade request. The native browser WebSocket API cannot
+set this header; use a server-side client or proxy.
+No query-string keys or temporary tokens are supported.
+
+1. Connect and wait for message_type: session_started.
+2. Send JSON text messages containing small PCM chunks.
+3. Read transcript events continuously while sending.
+4. Commit the turn, then wait for committed_transcript.
+5. Reuse the connection for another turn, or close it.
+
+Chunk message (replace BASE64_PCM with encoded bytes):
+
+{
+  "message_type": "input_audio_chunk",
+  "audio_base_64": "BASE64_PCM",
+  "sample_rate": 16000,
+  "commit": false
+}
+
+All four fields are required. Encode raw PCM bytes with
+standard base64. Do not include a WAV header or data URL.
+640 bytes is 20 ms of mono 16 kHz PCM16.
+audio_format also accepts pcm_8000, pcm_24000 and
+pcm_48000; sample_rate must match the selected format.
+
+To finish a manual turn, send the last chunk with
+commit: true, or send this after the last chunk:
+
+{
+  "message_type": "input_audio_chunk",
+  "audio_base_64": "",
+  "sample_rate": 16000,
+  "commit": true
+}
+
+Transcript events include these fields:
+
+{
+  "message_type": "partial_transcript",
+  "text": "SO"
+}
+
+{
+  "message_type": "committed_transcript",
+  "text": "SOS"
+}
+
+Partial text is provisional: replace it, do not append
+each partial. Only committed text completes a turn.
+Empty commits do not emit a transcript.
+
+For automatic commits, set commit_strategy=vad and
+vad_silence_threshold_secs=0.84. Send actual PCM silence
+after a turn. Waiting without audio does not advance
+the decoder. This detects Morse gaps, not human speech.
+
+Optional include_timestamps=true adds a
+committed_transcript_with_timestamps event after the
+ordinary committed event. It contains text, words and
+language_code. Do not count it as a second turn.
+
+Send a message at least every 30 seconds. For an idle
+keepalive, use an empty audio chunk with commit: false.
+On disconnect, uncommitted text is lost. Reconnect with
+a fresh session; there is no resume or replay history.
+
+## Audio profile and limits
+
+Tone: 700 Hz. Dot: 60 ms. Dash: 180 ms.
+Gaps: 60 ms within a letter, 180 ms between letters,
+420 ms between words. Synthesized audio ends with
+840 ms of silence. Use this profile for recognition.
+
+Text                     4096 UTF-8 bytes
+Synthesized duration     300 seconds per request
+Batch audio upload       12 MiB
+Batch audio duration     300 seconds
+Concurrent TTS requests  8
+Concurrent STT sockets   64
+Decoded PCM per message  256 KiB
+WebSocket message        512 KiB
+WebSocket session        1 hour
+Idle timeout             30 seconds
+
+MP3, human speech, voice cloning and the rest of the
+ElevenLabs platform are not supported. Use the routes
+and fields documented here; do not assume SDK parity.
+
+## Errors and retries
+
+HTTP errors use application/json:
+
+{
+  "detail": {
+    "status": "needs_authorization",
+    "message": "A nonempty xi-api-key is required"
+  }
+}
+
+401  Missing or blank xi-api-key; supply any value.
+404  Unknown API route or voice; check the path.
+413  Batch upload too large; send a smaller file.
+422  Invalid input; fix the format, fields or model.
+429  Capacity is busy; retry with bounded backoff.
+503  Server is draining; retry with bounded backoff.
+
+Check the status before treating a response as PCM.
+If a stream ends early, discard the incomplete audio
+before retrying. Stop reading/close the connection to
+cancel a request. There is no idempotency-key support.
+
+After a WebSocket upgrade, failures are JSON events
+with message_type (such as input_error) and error text,
+followed by connection close. Correct invalid audio
+before reconnecting; do not retry bad input unchanged.
+
+## Discovery and health
+
+GET /v1/models    TTS model list (morse_v1)
+GET /v1/voices    Voice list (morse)
+GET /healthz     Process health
+GET /readyz      Readiness; 503 while draining
+
+For agents: GET /llms.txt returns this reference as
+plain text. No browser or JavaScript is needed.

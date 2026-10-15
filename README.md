@@ -10,6 +10,10 @@ requested; realtime STT consumes PCM chunks and emits partial/final transcripts.
 Cancellation and socket backpressure bound work. The multipart STT endpoint is
 a convenience for complete PCM/WAV files, not the live room path.
 
+Read the [API documentation](https://morsecode-audio.up.railway.app/) or
+give an agent the [plain-text reference](https://morsecode-audio.up.railway.app/llms.txt).
+Both are served from the same embedded reference, without authentication.
+
 ## Local use
 
 Use Go 1.26.1 (also pinned in `.tool-versions`):
