@@ -13,16 +13,11 @@ Base URL:
 https://morsecode.vxpipe.com
 ```
 
-These shell examples use curl. Run them in order.
-
-```bash
-BASE=https://morsecode.vxpipe.com
-TTS="$BASE/v1/text-to-speech/morse"
-```
+Each curl example includes its full endpoint URL. No shell variables are needed.
 
 ```bash
 curl --fail-with-body --no-buffer \
-  "$TTS/stream?output_format=pcm_16000" \
+  'https://morsecode.vxpipe.com/v1/text-to-speech/morse/stream' \
   -H 'Content-Type: application/json' \
   -d '{"text":"SOS","model_id":"morse_v1"}' \
   -o sos.pcm
@@ -35,7 +30,7 @@ FFmpeg):
 ffplay -f s16le -ar 16000 -ch_layout mono sos.pcm
 ```
 
-## Text to audio
+## Text to Audio
 
 ```http
 POST /v1/text-to-speech/morse/stream
@@ -73,7 +68,50 @@ trailing byte into the next chunk.
 The HTTP request contains the full text; audio is streamed. For a response with
 Content-Length, use POST /v1/text-to-speech/morse (without /stream).
 
-## Realtime text to audio
+## Audio to Text
+
+```http
+POST /v1/speech-to-text
+Content-Type: multipart/form-data
+```
+
+Transcribe a local mono 16 kHz PCM16 file named sos.pcm (such as the quick-start
+output). Replace the filename to use your own audio:
+
+```bash
+curl --fail-with-body \
+  'https://morsecode.vxpipe.com/v1/speech-to-text' \
+  -F 'model_id=morse_stt_v1' \
+  -F 'file_format=pcm_s16le_16' \
+  -F 'file=@sos.pcm'
+```
+
+```text
+Required fields: file, model_id.
+model_id: morse_stt_v1.
+file_format: pcm_s16le_16 for raw mono 16 kHz PCM16;
+use other (the default) for a mono PCM16 WAV file.
+WAV sample rates: 8000, 16000, 22050, 24000, 32000,
+44100 or 48000 Hz.
+Let your HTTP client set the multipart boundary.
+```
+
+200 response: application/json. Read text for the result ("SOS" in this
+example). Other fields:
+
+```text
+language_code         "und" unless supplied
+language_probability  0 (not a confidence score)
+audio_duration_secs   input duration in seconds
+words                 timestamped word/spacing objects
+```
+
+Each words entry has text, type, start, end and logprob. Times are seconds from
+the start of the input audio. Optional timestamps_granularity: word (default),
+character (adds characters per entry), or none. Silence returns empty text, not
+an invented transcript.
+
+## Realtime Text to Audio
 
 Send text incrementally and receive audio before the last text fragment arrives.
 WebSocket endpoint:
@@ -131,48 +169,7 @@ Morse uses fixed timing and no contextual generation buffer. auto_mode and
 try_trigger_generation do not delay output. There is no alignment output,
 SSML, MP3 or multi-context endpoint.
 
-## Audio to text
-
-```http
-POST /v1/speech-to-text
-Content-Type: multipart/form-data
-```
-
-Transcribe the file from the quick start:
-
-```bash
-curl --fail-with-body "$BASE/v1/speech-to-text" \
-  -F 'model_id=morse_stt_v1' \
-  -F 'file_format=pcm_s16le_16' \
-  -F 'file=@sos.pcm'
-```
-
-```text
-Required fields: file, model_id.
-model_id: morse_stt_v1.
-file_format: pcm_s16le_16 for raw mono 16 kHz PCM16;
-use other (the default) for a mono PCM16 WAV file.
-WAV sample rates: 8000, 16000, 22050, 24000, 32000,
-44100 or 48000 Hz.
-Let your HTTP client set the multipart boundary.
-```
-
-200 response: application/json. Read text for the result ("SOS" in this
-example). Other fields:
-
-```text
-language_code         "und" unless supplied
-language_probability  0 (not a confidence score)
-audio_duration_secs   input duration in seconds
-words                 timestamped word/spacing objects
-```
-
-Each words entry has text, type, start, end and logprob. Times are seconds from
-the start of the input audio. Optional timestamps_granularity: word (default),
-character (adds characters per entry), or none. Silence returns empty text, not
-an invented transcript.
-
-## Realtime audio to text
+## Realtime Audio to Text
 
 WebSocket endpoint:
 

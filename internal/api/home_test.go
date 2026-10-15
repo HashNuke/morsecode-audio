@@ -60,3 +60,27 @@ func TestDocumentationDisallowsProxyRewriting(t *testing.T) {
 		t.Fatal("multipart example must retain curl's file-upload syntax")
 	}
 }
+
+func TestHomepageHighlightsFourServicesWithStandaloneExamples(t *testing.T) {
+	w := request(api.New(), "GET", "/", "")
+	body := w.Body.String()
+	start := strings.Index(body, `<nav aria-labelledby="services-title">`)
+	if start < 0 {
+		t.Fatal("homepage needs a dedicated services list")
+	}
+	end := strings.Index(body[start:], "</nav>")
+	if end < 0 {
+		t.Fatal("services navigation is incomplete")
+	}
+	services := body[start : start+end]
+	for _, name := range []string{"Text to Audio", "Audio to Text", "Realtime Text to Audio", "Realtime Audio to Text"} {
+		if !strings.Contains(services, ">"+name+"</a>") {
+			t.Errorf("missing prominent service: %s", name)
+		}
+	}
+	for _, variable := range []string{"$BASE", "$TTS", "BASE=", "TTS="} {
+		if strings.Contains(body, variable) {
+			t.Errorf("example depends on shell variable %s", variable)
+		}
+	}
+}

@@ -53,6 +53,10 @@
     nav { margin-top: 24px; }
     nav ul { list-style: none; padding: 0; margin: 20px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 24px; }
     nav li { margin: 4px 0; }
+    .services a { font-weight: 600; }
+    .services span { display: block; color: #555; font-size: 0.875rem; }
+    .services h2 { margin: 28px 0 0; }
+    .services ul { row-gap: 16px; }
     section { border-top: 1px solid #ddd; padding-top: 28px; margin-top: 40px; scroll-margin-top: 24px; }
     footer { border-top: 1px solid #ddd; margin-top: 48px; padding-top: 24px; }
     @media (max-width: 640px) {
@@ -76,10 +80,20 @@
         &middot; <a href="/llms.txt">Plain text / for agents</a>
       </p>
       {{template "blocks" .Intro}}
-      <nav aria-label="Documentation">
-        <ul>{{range .Sections}}
-          <li><a href="#{{.ID}}">{{.Title}}</a></li>{{end}}
-        </ul>
+      <nav aria-labelledby="services-title">
+        <div class="services">
+          <h2 id="services-title">Services</h2>
+          <ul>
+            <li><a href="#text-to-audio">Text to Audio</a>
+              <span>Send text. Receive streamed Morse audio.</span></li>
+            <li><a href="#audio-to-text">Audio to Text</a>
+              <span>Upload a Morse audio file. Receive its transcript.</span></li>
+            <li><a href="#realtime-text-to-audio">Realtime Text to Audio</a>
+              <span>Stream text in and Morse audio out over WebSocket.</span></li>
+            <li><a href="#realtime-audio-to-text">Realtime Audio to Text</a>
+              <span>Stream Morse audio. Receive partial and final transcripts.</span></li>
+          </ul>
+        </div>
       </nav>
     </header>
     {{range .Sections}}
