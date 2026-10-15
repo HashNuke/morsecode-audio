@@ -1,4 +1,4 @@
-# Morse audio API
+# MorseCode Audio API
 
 The existing Morse audio behavior, served over ElevenLabs-shaped HTTP and
 WebSocket interfaces. Text becomes Morse PCM; Morse PCM becomes text. It does
@@ -10,8 +10,8 @@ requested; realtime STT consumes PCM chunks and emits partial/final transcripts.
 Cancellation and socket backpressure bound work. The multipart STT endpoint is
 a convenience for complete PCM/WAV files, not the live room path.
 
-Read the [API documentation](https://morsecode-audio.up.railway.app/) or
-give an agent the [plain-text reference](https://morsecode-audio.up.railway.app/llms.txt).
+Read the [API documentation](https://morsecode.vxpipe.com/) or
+give an agent the [plain-text reference](https://morsecode.vxpipe.com/llms.txt).
 Both are served from the same embedded reference, without authentication.
 
 ## Local use
@@ -39,7 +39,7 @@ redirects and exits nonzero on failure. It checks the live HTTP and STT WS paths
 
 Vxpipe uses one `morse_code_api` adapter with its normal TTS/STT components.
 Set `MORSE_CODE_API_BASE_URL=http://127.0.0.1:8787` in Vxpipe for local use;
-after deployment, set it to `https://morse-audio.definerun.com` and restart.
+after deployment, set it to `https://morsecode.vxpipe.com` and restart.
 The endpoint is not part of the saved service credential or call spec.
 
 See the [supported API](docs/elevenlabs-compatibility.md),

@@ -39,11 +39,11 @@ lost on restart, with no retained requests to recover.
    gives the binary time to shut down after SIGTERM.
 4. Deploy and confirm readiness. Generate a public HTTPS domain and run the same
    smoke command with that origin. It also derives WSS and checks recognition.
-5. Add `morse-audio.definerun.com`. Copy the CNAME and TXT records Railway
+5. Add `morsecode.vxpipe.com`. Copy the CNAME and TXT records Railway
    supplies and wait for certificate issuance. Railway's
    [public networking guide](https://docs.railway.com/networking/public-networking)
    describes this setup. Run:
-   `go run ./cmd/smoke -base-url https://morse-audio.definerun.com`.
+   `go run ./cmd/smoke -base-url https://morsecode.vxpipe.com`.
 
 The [healthcheck](https://docs.railway.com/deployments/healthchecks) gates a
 deployment; it is not continuous uptime monitoring. All endpoints are public.

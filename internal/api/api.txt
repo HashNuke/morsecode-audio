@@ -1,4 +1,4 @@
-# Morse audio API
+# MorseCode Audio API
 
 Text to Morse audio. Morse audio to text.
 An ElevenLabs-shaped API, with no account required.
@@ -9,11 +9,11 @@ Requests, audio and transcripts are not stored.
 ## Quick start
 
 Base URL:
-https://morsecode-audio.up.railway.app
+https://morsecode.vxpipe.com
 
 These shell examples use curl. Run them in order.
 
-BASE=https://morsecode-audio.up.railway.app
+BASE=https://morsecode.vxpipe.com
 TTS="$BASE/v1/text-to-speech/morse"
 
 curl --fail-with-body --no-buffer \
@@ -97,7 +97,7 @@ Silence returns empty text, not an invented transcript.
 ## Realtime audio to text
 
 WebSocket endpoint:
-wss://morsecode-audio.up.railway.app
+wss://morsecode.vxpipe.com
 /v1/speech-to-text/realtime
 
 Join the origin and path; append these query parameters:

@@ -22,7 +22,7 @@ var homepage = func() []byte {
 	data := struct {
 		Intro    string
 		Sections []section
-	}{Intro: strings.TrimSpace(strings.TrimPrefix(parts[0], "# Morse audio API"))}
+	}{Intro: strings.TrimSpace(strings.TrimPrefix(parts[0], "# MorseCode Audio API"))}
 	for _, part := range parts[1:] {
 		title, body, _ := strings.Cut(part, "\n")
 		data.Sections = append(data.Sections, section{
