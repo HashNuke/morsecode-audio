@@ -40,7 +40,7 @@ func TestPublicDocumentation(t *testing.T) {
 func TestDocumentationTypography(t *testing.T) {
 	s := api.New()
 	w := request(s, "GET", "/", "")
-	for _, fragment := range []string{"<p>This API produces", "<pre><code class=\"language-bash\">curl", "<ol>", "font-src 'self'"} {
+	for _, fragment := range []string{"<p>This API produces", "<code class=\"language-bash\">curl", "<ol>", "font-src 'self'"} {
 		if !strings.Contains(w.Body.String()+w.Header().Get("Content-Security-Policy"), fragment) {
 			t.Errorf("homepage missing %q", fragment)
 		}

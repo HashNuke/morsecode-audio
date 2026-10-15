@@ -35,8 +35,8 @@
     pre {
       font: 0.875rem/1.7 ui-monospace, SFMono-Regular, Menlo,
         Consolas, "Liberation Mono", monospace;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
+      white-space: pre;
+      overflow-x: auto;
       margin: 0 0 24px;
       padding: 18px 20px;
       background: #f5f6f7;
@@ -48,6 +48,7 @@
     a { color: #2259a3; text-underline-offset: 3px; }
     a:hover { color: #153665; }
     a:focus-visible { outline: 2px solid #2259a3; outline-offset: 4px; }
+    pre:focus-visible { outline: 2px solid #2259a3; outline-offset: 4px; }
     ::selection { background: #dce9fa; color: #222; }
     nav { margin-top: 24px; }
     nav ul { list-style: none; padding: 0; margin: 20px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 24px; }
@@ -95,7 +96,7 @@
 </body>
 </html>
 {{define "blocks"}}{{range .}}
-{{if .Code}}<pre><code class="language-{{.Language}}">{{.Text}}</code></pre>
+{{if .Code}}<pre tabindex="0" aria-label="{{.Language}} example"><code class="language-{{.Language}}">{{.Text}}</code></pre>
 {{else if .Items}}<ol>{{range .Items}}<li>{{.}}</li>{{end}}</ol>
 {{else}}<p>{{.Text}}</p>{{end}}
 {{end}}{{end}}
