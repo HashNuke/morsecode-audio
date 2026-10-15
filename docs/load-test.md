@@ -144,3 +144,37 @@ Local tests exercise the real server through loopback HTTP/WebSockets, reject
 corrupt speech responses, distinguish 429s, verify summary arithmetic and ensure
 cancellation stops new work. Hosted runs are explicit commands, never part of
 the default test suite.
+
+## Hosted results — 2026-10-15
+
+Tested API revision `49c901f` at `https://morsecode.vxpipe.com`, one Railway
+Singapore replica limited to 0.5 vCPU / 125 MB. Each stage used `-pace`, `SOS`,
+a ten-second launch window and ten-second operation timeout. The STT fixture is
+2.46 seconds; TTS input arrives one character per 100 ms. Each operation opens
+a new WebSocket. All stages ran sequentially, not as a mixed workload.
+
+| Scenario | Clients | Peak sockets | Successes | HTTP 429 | Other errors | Total p95 ms | First event p95 ms |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| realtime-stt | 8 | 8 | 32 | 0 | 0 | 3227.9 | 1247.2 |
+| realtime-stt | 32 | 32 | 128 | 0 | 0 | 3261.5 | 1281.2 |
+| realtime-stt | 64 | 64 | 256 | 0 | 0 | 3307.3 | 1316.2 |
+| realtime-tts | 4 | 4 | 48 | 0 | 0 | 1158.5 | 733.4 |
+| realtime-tts | 8 | 8 | 92 | 0 | 0 | 1206.7 | 763.1 |
+| realtime-stt | 65 | 64 | 256 | 27 | 0 | 3310.2 | 1330.4 |
+| realtime-tts | 9 | 8 | 93 | 18 | 0 | 1242.8 | 778.3 |
+
+The short runs demonstrate 64 overlapping STT sessions and eight overlapping
+TTS sessions for this paced workload. The above-limit stages reached the same
+admission caps and rejected excess connections with 429, without protocol or
+transcript/PCM failures. Every post-stage HTTP/realtime smoke check passed.
+No resource settings or admission limits were raised.
+
+Latency includes client/network/TLS setup and deliberate input pacing. These
+are not origin-only processing times, an hour-long soak, a noisy-audio test,
+or evidence that 64 STT plus eight TTS sessions can run simultaneously with the
+same latency. Longer texts, slower readers and mixed traffic need separate runs.
+
+Railway's one-hour window sampled every 30 seconds after these runs reported
+maximum CPU usage 0.0511462 and maximum memory 0.013860864 GB. That broad window
+includes idle time and deployment activity, so these are context, not an isolated
+benchmark peak or a sizing guarantee. The service remained ready afterwards.
