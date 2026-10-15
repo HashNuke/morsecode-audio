@@ -13,11 +13,11 @@ behavior hosted online. Unsupported features are not pending parity requirements
 | `GET /v1/models`, `GET /v1/voices` | Static Morse discovery for service setup |
 | `GET /healthz`, `GET /readyz` | Health and readiness without authentication |
 
-All speech/discovery requests require a nonempty `xi-api-key`. Any value works;
-there is no key registry or token issuance. Missing keys return HTTP 401 with
-`detail.status=needs_authorization`. Invalid supported-route input returns 422,
+All speech/discovery routes are public, including realtime WebSocket STT.
+The optional `xi-api-key` header is accepted and ignored, even when blank.
+There is no key registry or token issuance. Invalid supported-route input returns 422,
 unknown routes return 404, overload returns 429 and draining returns 503.
-Compatibility keys are not an authorization boundary.
+Missing keys are accepted; compatibility keys are not an authorization boundary.
 
 TTS uses `morse_v1` and voice `morse`. It defaults to `pcm_16000`, and
 supports explicit `pcm_8000`, `pcm_16000`, `pcm_24000` and `pcm_48000`.

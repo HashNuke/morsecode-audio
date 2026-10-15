@@ -32,7 +32,7 @@ func TestPublicDocumentation(t *testing.T) {
 	if w := request(s, "GET", "/missing", ""); w.Code != 404 {
 		t.Fatal("homepage must not mask unknown routes")
 	}
-	if w := request(s, "GET", "/v1/models", ""); w.Code != 401 {
-		t.Fatal("public docs must not bypass API authentication")
+	if w := request(s, "GET", "/v1/models", ""); w.Code != 200 {
+		t.Fatal("API discovery must be public too")
 	}
 }

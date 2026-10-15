@@ -29,24 +29,10 @@ func TestHealthAndDrain(t *testing.T) {
 	}
 }
 
-func TestCatalogAuthentication(t *testing.T) {
+func TestCatalogIgnoresAPIKey(t *testing.T) {
 	s := api.New()
-	for _, key := range []string{"arbitrary-one", "another arbitrary key", ""} {
+	for _, key := range []string{"arbitrary-one", "another arbitrary key", "", "   "} {
 		w := request(s, "GET", "/v1/models", key)
-		if key == "" {
-			if w.Code != 401 {
-				t.Fatalf("missing key: %d", w.Code)
-			}
-			var body struct {
-				Detail struct {
-					Status string `json:"status"`
-				} `json:"detail"`
-			}
-			if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil || body.Detail.Status != "needs_authorization" {
-				t.Fatalf("auth error: %s", w.Body)
-			}
-			continue
-		}
 		if w.Code != 200 {
 			t.Fatalf("arbitrary key: %d", w.Code)
 		}

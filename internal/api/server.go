@@ -29,13 +29,13 @@ func New() *Server {
 		}
 		writeJSON(w, 200, map[string]string{"status": "ready"})
 	})
-	s.mux.Handle("/v1/", s.auth(s.catalogRoutes()))
+	s.mux.Handle("/v1/", s.apiRequests(s.catalogRoutes()))
 	return s
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// This public compatibility API uses explicit credentials only, never cookies
-	// or ambient browser authentication. All browser origins may use it.
+	// All browser origins may use this public API. Compatibility keys
+	// are accepted but ignored; no credentials are required.
 	if strings.HasPrefix(r.URL.Path, "/v1/") {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		if r.Method == "OPTIONS" {
@@ -61,7 +61,7 @@ func (s *Server) WaitSockets(ctx context.Context) error {
 	}
 }
 
-func (s *Server) auth(next http.Handler) http.Handler {
+func (s *Server) apiRequests(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s.draining.Load() {
 			writeError(w, 503, "not_ready", "Server is draining")
@@ -70,10 +70,6 @@ func (s *Server) auth(next http.Handler) http.Handler {
 		_, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {
 			writeError(w, 422, "invalid_request", "Invalid query parameters")
-			return
-		}
-		if strings.TrimSpace(r.Header.Get("xi-api-key")) == "" {
-			writeError(w, 401, "needs_authorization", "A nonempty xi-api-key is required")
 			return
 		}
 		next.ServeHTTP(w, r)

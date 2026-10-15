@@ -49,8 +49,7 @@ func (s *socketSet) accept(w http.ResponseWriter, r *http.Request) *speechSocket
 	socket := &speechSocket{set: s, ctx: ctx, cancel: cancel}
 	s.active[socket] = struct{}{}
 	s.mu.Unlock()
-	// All origins may use this public API; cookies confer no authority. Each
-	// admitted operation still requires an explicit compatibility key.
+	// All origins may use this public API without credentials.
 	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{CompressionMode: websocket.CompressionDisabled, InsecureSkipVerify: true})
 	if err != nil {
 		socket.close()

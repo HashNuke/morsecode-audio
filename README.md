@@ -2,7 +2,8 @@
 
 The existing Morse audio behavior, served over ElevenLabs-shaped HTTP and
 WebSocket interfaces. Text becomes Morse PCM; Morse PCM becomes text. It does
-not recognize human speech or call ElevenLabs. Any nonempty `xi-api-key` works.
+not recognize human speech or call ElevenLabs. No authentication is required;
+the optional `xi-api-key` header is accepted and ignored.
 No database, registration, retained content or external audio codec is needed.
 
 Audio streams: HTTP TTS renders and flushes small PCM buffers as they are
@@ -34,7 +35,7 @@ curl -H 'xi-api-key: any-example-key' -H 'Content-Type: application/json' \
 
 Choose another free port if necessary. Environment files are examples; the app
 reads process variables and does not load `.env` itself. The smoke command
-requires an explicit origin, uses a synthetic key by default, never follows
+requires an explicit origin, omits the API key by default, never follows
 redirects and exits nonzero on failure. It checks the live HTTP and STT WS paths.
 
 Vxpipe uses one `morse_code_api` adapter with its normal TTS/STT components.

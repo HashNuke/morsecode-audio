@@ -23,22 +23,19 @@ import (
 
 func main() {
 	origin := flag.String("base-url", "", "Required HTTP(S) origin of the Morse server")
-	key := flag.String("api-key", "synthetic-morse-smoke", "Any nonempty compatibility key")
+	key := flag.String("api-key", "", "Optional compatibility key; the server ignores it")
 	flag.Parse()
 	if err := run(*origin, *key); err != nil {
 		fmt.Fprintln(os.Stderr, "Morse smoke failed:", err)
 		os.Exit(1)
 	}
-	fmt.Println("Morse smoke passed: readiness, authentication, discovery, streamed PCM, batch and realtime recognition.")
+	fmt.Println("Morse smoke passed: readiness, public discovery, streamed PCM, batch and realtime recognition.")
 }
 
 func run(origin, key string) error {
 	u, err := url.Parse(origin)
 	if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") || (u.Scheme != "http" && u.Scheme != "https") {
 		return errors.New("base-url must be an explicit HTTP(S) origin")
-	}
-	if strings.TrimSpace(key) == "" {
-		return errors.New("a nonempty compatibility key is required")
 	}
 	origin = strings.TrimRight(origin, "/")
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -49,7 +46,9 @@ func run(origin, key string) error {
 		if err != nil {
 			return nil, fmt.Errorf("%s: invalid request", path)
 		}
-		r.Header.Set("xi-api-key", credential)
+		if credential != "" {
+			r.Header.Set("xi-api-key", credential)
+		}
 		r.Header.Set("Content-Type", contentType)
 		response, err := client.Do(r)
 		if err != nil {
@@ -71,7 +70,7 @@ func run(origin, key string) error {
 	for _, check := range []struct {
 		path, key string
 		status    int
-	}{{"/readyz", "", 200}, {"/v1/models", "", 401}, {"/v1/models", key, 200}, {"/v1/voices", key, 200}} {
+	}{{"/readyz", "", 200}, {"/v1/models", "", 200}, {"/v1/models", "ignored-example-key", 200}, {"/v1/voices", key, 200}} {
 		if _, err := request("GET", check.path, "", check.key, nil, check.status); err != nil {
 			return err
 		}
@@ -102,7 +101,11 @@ func run(origin, key string) error {
 	u.Scheme = map[string]string{"http": "ws", "https": "wss"}[u.Scheme]
 	u.Path = "/v1/speech-to-text/realtime"
 	u.RawQuery = "model_id=morse_stt_v1&audio_format=pcm_16000&commit_strategy=vad&vad_silence_threshold_secs=0.84"
-	conn, _, err := websocket.Dial(ctx, u.String(), &websocket.DialOptions{HTTPClient: client, HTTPHeader: http.Header{"Xi-Api-Key": []string{key}}})
+	headers := http.Header{}
+	if key != "" {
+		headers.Set("xi-api-key", key)
+	}
+	conn, _, err := websocket.Dial(ctx, u.String(), &websocket.DialOptions{HTTPClient: client, HTTPHeader: headers})
 	if err != nil {
 		return errors.New("realtime STT connection failed")
 	}

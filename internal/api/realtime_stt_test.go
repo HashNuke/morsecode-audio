@@ -146,15 +146,33 @@ func TestRealtimeAutomaticCommitAcrossAllInputFormats(t *testing.T) {
 	}
 }
 
-func TestRealtimeMalformedInputAndHandshake(t *testing.T) {
+func TestRealtimeIgnoresAPIKey(t *testing.T) {
 	s := httptest.NewServer(api.New())
 	defer s.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_, response, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(s.URL, "http")+"/v1/speech-to-text/realtime", nil)
-	if err == nil || response == nil || response.StatusCode != 401 {
-		t.Fatal("missing key accepted", err, response)
+	for _, key := range []string{"", "   ", "arbitrary-key"} {
+		headers := http.Header{"Origin": []string{"https://example.com"}}
+		if key != "" {
+			headers.Set("xi-api-key", key)
+		}
+		c, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(s.URL, "http")+"/v1/speech-to-text/realtime", &websocket.DialOptions{HTTPHeader: headers})
+		if err != nil {
+			t.Fatal("optional key rejected", err)
+		}
+		t.Cleanup(func() { c.CloseNow() })
+		if reply := readSTT(t, ctx, c); reply["message_type"] != "session_started" {
+			t.Fatal(reply)
+		}
+		sendSTT(t, ctx, c, independentMorse("E", 16000), 16000, true)
+		readFinal(t, ctx, c, "E")
+		c.CloseNow()
 	}
+}
+
+func TestRealtimeMalformedInput(t *testing.T) {
+	s := httptest.NewServer(api.New())
+	defer s.Close()
 	for _, message := range []string{
 		`{"message_type":"input_audio_chunk","audio_base_64":"!!!","commit":false,"sample_rate":16000}`,
 		`{"message_type":"input_audio_chunk","audio_base_64":"AQ==","commit":true,"sample_rate":16000}`,

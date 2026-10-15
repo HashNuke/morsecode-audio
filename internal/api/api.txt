@@ -18,7 +18,6 @@ TTS="$BASE/v1/text-to-speech/morse"
 
 curl --fail-with-body --no-buffer \
   "$TTS/stream?output_format=pcm_16000" \
-  -H 'xi-api-key: example-key' \
   -H 'Content-Type: application/json' \
   -d '{"text":"SOS","model_id":"morse_v1"}' \
   -o sos.pcm
@@ -30,14 +29,17 @@ ffplay -f s16le -ar 16000 -ch_layout mono sos.pcm
 
 ## Authentication
 
-Send this header on every /v1/ request, including the
-WebSocket handshake:
+No authentication is required. HTTP requests and
+WebSocket connections work without an API key.
+
+For clients that expect an ElevenLabs-style key, you
+may send this optional header:
 
 xi-api-key: example-key
 
-Any nonempty value works. No signup or real ElevenLabs
-key is needed. This is protocol compatibility, not
-access control. Do not send a valuable secret.
+The server ignores the header, including blank values.
+No signup, token or real ElevenLabs key is needed.
+Existing clients can keep sending a placeholder key.
 
 This page, /llms.txt, /healthz and /readyz are public.
 
@@ -82,7 +84,6 @@ Content-Type: multipart/form-data
 Transcribe the file from the quick start:
 
 curl --fail-with-body "$BASE/v1/speech-to-text" \
-  -H 'xi-api-key: example-key' \
   -F 'model_id=morse_stt_v1' \
   -F 'file_format=pcm_s16le_16' \
   -F 'file=@sos.pcm'
@@ -121,10 +122,9 @@ model_id=morse_stt_v1
 audio_format=pcm_16000
 commit_strategy=manual
 
-Use a WebSocket client that can set xi-api-key in the
-upgrade request. The native browser WebSocket API cannot
-set this header; use a server-side client or proxy.
-No query-string keys or temporary tokens are supported.
+Connect directly from a browser or server-side client.
+No authentication header or proxy is needed. Omit API
+keys from the URL; no query-string keys are supported.
 
 1. Connect and wait for message_type: session_started.
 2. Send JSON text messages containing small PCM chunks.
@@ -216,12 +216,11 @@ HTTP errors use application/json:
 
 {
   "detail": {
-    "status": "needs_authorization",
-    "message": "A nonempty xi-api-key is required"
+    "status": "unsupported_output_format",
+    "message": "Unsupported output format"
   }
 }
 
-401  Missing or blank xi-api-key; supply any value.
 404  Unknown API route or voice; check the path.
 413  Batch upload too large; send a smaller file.
 422  Invalid input; fix the format, fields or model.
