@@ -15,8 +15,11 @@ const usage = `morsecode-audio — Morse audio API server
 
 Usage:
   morsecode-audio serve [--host IP] [--port PORT]
+  morsecode-audio loadtest <service> [flags] http(s)://host
   morsecode-audio version
   morsecode-audio --help
+
+Load services: tts, stt, realtime-tts, realtime-stt. Use loadtest --help for flags.
 
 Serve defaults to 127.0.0.1:8787. HOST and PORT also configure the listener;
 command flags take precedence. Running without arguments also starts the server.

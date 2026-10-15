@@ -77,6 +77,21 @@ Vxpipe uses one `morse_code_api` adapter with its normal TTS/STT components.
 Set `MORSE_CODE_API_BASE_URL` to your local or hosted origin and restart Vxpipe.
 The endpoint is separate from saved service credentials and call specs.
 
+## Load test a service
+
+```sh
+./morsecode-audio loadtest realtime-stt --concurrency 32 --duration 90s \
+  https://morsecode.vxpipe.com
+./morsecode-audio loadtest realtime-tts --concurrency 8 --duration 90s \
+  https://morsecode.vxpipe.com
+```
+
+Services: `tts`, `stt`, `realtime-tts`, `realtime-stt`. Realtime tests hold each
+original WebSocket for the duration and perform repeated turns; failed sessions
+are not replaced. JSON reports include peak concurrency, completed turns,
+shortest successful session duration, errors and capacity rejections. Use
+`loadtest --help` for flags or read the [load-test guide](docs/load-test.md).
+
 ## Development and verification
 
 Use Go 1.26.1, pinned in `.tool-versions`:

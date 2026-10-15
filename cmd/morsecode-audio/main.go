@@ -14,9 +14,13 @@ import (
 
 	"github.com/HashNuke/morsecode-audio/internal/api"
 	"github.com/HashNuke/morsecode-audio/internal/config"
+	"github.com/HashNuke/morsecode-audio/internal/loadtest"
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "loadtest" {
+		os.Exit(loadtest.Run(os.Args[2:], os.Stdout, os.Stderr))
+	}
 	cfg, serve, err := parseCommand(os.Args[1:], os.Getenv, os.Stdout)
 	if err == nil && serve {
 		err = run(cfg)

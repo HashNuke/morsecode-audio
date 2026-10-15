@@ -1,18 +1,17 @@
-Run the Morse audio API locally with one binary:
+The binary now includes sustained realtime load testing:
 
 ```sh
-./morsecode-audio serve
+./morsecode-audio loadtest realtime-stt --concurrency 32 --duration 90s \
+  https://morsecode.vxpipe.com
 ```
 
-Open http://127.0.0.1:8787 for documentation. Use `--host` and `--port` to choose
-another listener, and `version` to inspect the installed release.
+Services: `tts`, `stt`, `realtime-tts`, `realtime-stt`. Each realtime worker keeps
+one WebSocket open for the requested duration, performs repeated validated turns,
+and never replaces a failed session. The report includes peak concurrency,
+completed turns, shortest successful session duration, 429s and errors.
+Use `loadtest --help` for pacing, timeout, text and reconnect options.
 
-This release provides Text to Audio, Audio to Text, Realtime Text to Audio and
-Realtime Audio to Text. Both realtime interfaces use ElevenLabs-shaped
-WebSocket messages with the fixed Morse audio profile. No account, database or
-external codec is required. The public API remains at https://morsecode.vxpipe.com.
-
-Choose the archive matching your OS and CPU. SHA-256 hashes are in
-`checksums.txt`. macOS and Windows binaries are unsigned; all targets are
-cross-compiled and the packaged Linux AMD64 binary is smoke-tested before
-publication.
+Run your own API with `./morsecode-audio serve`; the public API remains available
+at https://morsecode.vxpipe.com. Choose the OS/CPU archive and verify its SHA-256
+hash using `checksums.txt`. macOS and Windows binaries are unsigned. The packaged
+Linux AMD64 server and load-test command are smoke-tested before publication.

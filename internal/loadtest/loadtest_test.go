@@ -1,14 +1,16 @@
-package main
+package loadtest
 
 import (
 	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/HashNuke/morsecode-audio/internal/api"
+	"github.com/coder/websocket"
 )
 
 func TestLoadChecksRealSpeechBoundaries(t *testing.T) {
@@ -111,5 +113,89 @@ func TestRealtimeTTSLoadUsesIncrementalWebSocketInput(t *testing.T) {
 	defer cancel()
 	if first, err := target.exercise(ctx, "realtime-tts"); err != nil || first <= 0 {
 		t.Fatalf("realtime TTS load failed: first=%s err=%v", first, err)
+	}
+}
+
+func TestRealtimePhaseHoldsOneConnectionPerClient(t *testing.T) {
+	for _, scenario := range []string{"realtime-stt", "realtime-tts"} {
+		t.Run(scenario, func(t *testing.T) {
+			var connections atomic.Int64
+			app := api.New()
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				connections.Add(1)
+				app.ServeHTTP(w, r)
+			}))
+			defer server.Close()
+			target, err := newTarget(server.URL, "E")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer target.client.CloseIdleConnections()
+			duration := 100 * time.Millisecond
+			result := target.phase(context.Background(), scenario, 2, duration, time.Second)
+			if result.Attempts != 2 || result.Success != 2 || result.Errors != 0 || connections.Load() != 2 {
+				t.Fatalf("must hold two original connections: %+v, connections=%d", result, connections.Load())
+			}
+			if result.CompletedTurns < 4 || result.ShortestSessionSeconds < duration.Seconds() {
+				t.Fatalf("sessions did not stay open with repeated turns: %+v", result)
+			}
+		})
+	}
+}
+
+func TestRealtimePhaseDoesNotReplaceRejectedConnections(t *testing.T) {
+	var connections atomic.Int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { connections.Add(1); w.WriteHeader(429) }))
+	defer server.Close()
+	target, _ := newTarget(server.URL, "E")
+	defer target.client.CloseIdleConnections()
+	result := target.phase(context.Background(), "realtime-tts", 3, 100*time.Millisecond, time.Second)
+	if result.Attempts != 3 || result.Capacity != 3 || connections.Load() != 3 {
+		t.Fatalf("rejected sessions were retried: %+v", result)
+	}
+}
+
+func TestPersistentSessionCancellationClosesOriginalSocket(t *testing.T) {
+	connected := make(chan struct{})
+	closed := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.CloseNow()
+		close(connected)
+		for {
+			if _, _, err := conn.Read(r.Context()); err != nil {
+				close(closed)
+				return
+			}
+		}
+	}))
+	defer server.Close()
+	target, _ := newTarget(server.URL, "E")
+	defer target.client.CloseIdleConnections()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan report, 1)
+	go func() { done <- target.phase(ctx, "realtime-tts", 1, time.Minute, time.Second) }()
+	select {
+	case <-connected:
+	case <-time.After(time.Second):
+		t.Fatal("session never opened")
+	}
+	cancel()
+	select {
+	case result := <-done:
+		if result.Attempts != 1 || result.Errors != 1 {
+			t.Fatalf("cancellation result: %+v", result)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("cancellation did not stop load test")
+	}
+	select {
+	case <-closed:
+	case <-time.After(time.Second):
+		t.Fatal("cancellation leaked the original socket")
 	}
 }
