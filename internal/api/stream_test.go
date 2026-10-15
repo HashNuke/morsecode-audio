@@ -14,25 +14,6 @@ import (
 	"github.com/HashNuke/morsecode-audio/internal/api"
 )
 
-func TestHTTPDefaultMP3AndBinaryStream(t *testing.T) {
-	s := api.New()
-	for _, path := range []string{"/v1/text-to-speech/morse", "/v1/text-to-speech/morse/stream"} {
-		r := httptest.NewRequest("POST", path, strings.NewReader(`{"text":"E"}`))
-		r.Header.Set("xi-api-key", "synthetic")
-		w := httptest.NewRecorder()
-		s.ServeHTTP(w, r)
-		if w.Code != 200 || w.Header().Get("Content-Type") != "audio/mpeg" {
-			t.Fatalf("%s: %d %s", path, w.Code, w.Body)
-		}
-		if w.Body.Len() < 1000 || w.Body.Bytes()[0] != 0xff {
-			t.Fatal("not MP3 frames")
-		}
-		if strings.HasSuffix(path, "/stream") && !w.Flushed {
-			t.Fatal("stream never flushed")
-		}
-	}
-}
-
 func TestSlowReaderWriteFailureReleasesSynthesisCapacity(t *testing.T) {
 	s := api.New()
 	for range 12 {
@@ -89,6 +70,29 @@ func TestHTTPStreamDisconnectCompletesHandler(t *testing.T) {
 	case <-ctx.Done():
 		t.Fatal("handler retained disconnected stream")
 	}
+}
+
+func TestHTTPStreamFlushesBeforeCompleteAudioResponse(t *testing.T) {
+	s := api.New()
+	r := httptest.NewRequest("POST", "/v1/text-to-speech/morse/stream", strings.NewReader(`{"text":"`+strings.Repeat("T ", 480)+`"}`))
+	r.Header.Set("xi-api-key", "synthetic")
+	w := &firstFlushWriter{ResponseRecorder: httptest.NewRecorder()}
+	s.ServeHTTP(w, r)
+	// The requested audio lasts nearly five minutes. Stop at the first flush:
+	// less than one second must have been written, without finishing the body.
+	if w.Code != 200 || w.flushedBytes == 0 || w.flushedBytes >= 32000 || w.Body.Len() != w.flushedBytes {
+		t.Fatalf("stream buffered the response or ignored cancellation: status=%d first=%d total=%d", w.Code, w.flushedBytes, w.Body.Len())
+	}
+}
+
+type firstFlushWriter struct {
+	*httptest.ResponseRecorder
+	flushedBytes int
+}
+
+func (w *firstFlushWriter) FlushError() error {
+	w.flushedBytes = w.Body.Len()
+	return os.ErrClosed
 }
 
 func TestHTTPStreamPreflightErrorsContainNoAudio(t *testing.T) {

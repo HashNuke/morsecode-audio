@@ -1,112 +1,56 @@
-# MorseCode Audio API
+# Morse audio API
 
-An independent, storage-free Go service for Morse audio behind ElevenLabs-shaped
-TTS/STT protocols. It accepts arbitrary nonempty compatibility keys and never
-contacts ElevenLabs. Recognition is for Morse tones, not ordinary speech.
+The existing Morse audio behavior, served over ElevenLabs-shaped HTTP and
+WebSocket interfaces. Text becomes Morse PCM; Morse PCM becomes text. It does
+not recognize human speech or call ElevenLabs. Any nonempty `xi-api-key` works.
+No database, registration, retained content or external audio codec is needed.
 
-## Development
+Audio streams: HTTP TTS renders and flushes small PCM buffers as they are
+requested; realtime STT consumes PCM chunks and emits partial/final transcripts.
+Cancellation and socket backpressure bound work. The multipart STT endpoint is
+a convenience for complete PCM/WAV files, not the live room path.
 
-Use Go 1.26.1 (`asdf install` with the included tool configuration) and FFmpeg
-with `libmp3lame` and `libopus` encoders (verified with FFmpeg 6.1.1), then:
+## Local use
+
+Use Go 1.26.1 (also pinned in `.tool-versions`):
 
 ```sh
 HOST=127.0.0.1 PORT=8787 go run ./cmd/morsecode-audio
-curl http://127.0.0.1:8787/readyz
-curl -H 'xi-api-key: synthetic-example' http://127.0.0.1:8787/v1/models
-go test -race ./...
-go vet ./...
 ```
 
-Environment files are examples only; the application reads process variables and
-does not load `.env` automatically. Select another free port when needed. The
-listener defaults to loopback, requires a valid numeric port and reports bind
-conflicts. SIGTERM stops readiness, closes admitted speech sockets and drains
-HTTP requests within five seconds.
-
-Implemented so far: health/readiness, arbitrary-key HTTP authentication, a
-static catalog, all four HTTP TTS variants and all 28 nonstreaming output formats,
-plus synchronous PCM16/WAV transcription, realtime STT, single-context TTS
-WebSockets, multi-context TTS and browser tokens. Optional API fields and
-compressed STT remain subsequent checkpoints; see
-[the compatibility ledger](docs/elevenlabs-compatibility.md).
-No production or hosted compatibility claim is made yet.
-
-The pinned Docker image and current Railway IaC configuration are described in
-[the deployment runbook](docs/railway-deployment.md). The user performs hosted
-deployment and endpoint cutover after the remaining implementation gates pass.
-
-## PCM speech checkpoint
+In another terminal:
 
 ```sh
-curl -H 'xi-api-key: synthetic-example' -H 'Content-Type: application/json' \
-  -d '{"text":"SOS TEST 123","model_id":"morse_v1"}' \
-  'http://127.0.0.1:8787/v1/text-to-speech/morse?output_format=pcm_16000' \
+go run ./cmd/smoke -base-url http://127.0.0.1:8787
+curl -H 'xi-api-key: any-example-key' -H 'Content-Type: application/json' \
+  -d '{"text":"SOS","model_id":"morse_v1"}' \
+  'http://127.0.0.1:8787/v1/text-to-speech/morse/stream?output_format=pcm_16000' \
   -o /tmp/morse.pcm
-curl -H 'xi-api-key: another-synthetic-key' \
-  -F model_id=scribe_v2 -F file_format=pcm_s16le_16 -F file=@/tmp/morse.pcm \
-  http://127.0.0.1:8787/v1/speech-to-text
-uv run --with-requirements contracts/requirements.txt \
-  python contracts/speech_smoke.py http://127.0.0.1:8787
 ```
 
-Synthesis defaults to MP3 at 44.1 kHz / 128 kbps, and also supports PCM, WAV,
-Opus, mu-law and A-law. Batch recognition
-accepts mono PCM16 RIFF/WAV or raw `pcm_s16le_16`. Uploads are bounded to 12 MiB
-in process memory; no temporary upload files are written. Audio is limited to
-300 seconds and text to 4096 bytes. Codec buffers remain bounded while reading
-arbitrary chunks. Uppercase normalization and supported punctuation follow
-[the Morse contract](docs/morse-audio.md).
+Choose another free port if necessary. Environment files are examples; the app
+reads process variables and does not load `.env` itself. The smoke command
+requires an explicit origin, uses a synthetic key by default, never follows
+redirects and exits nonzero on failure. It checks the live HTTP and STT WS paths.
 
-## HTTP streaming and timestamps
+Vxpipe uses one `morse_code_api` adapter with its normal TTS/STT components.
+Set `MORSE_CODE_API_BASE_URL=http://127.0.0.1:8787` in Vxpipe for local use;
+after deployment, set it to `https://morse-audio.definerun.com` and restart.
+The endpoint is not part of the saved service credential or call spec.
 
-Use `/v1/text-to-speech/morse/stream` for early binary chunks. Add
-`/with-timestamps` to either convert or stream for base64 JSON with original and
-normalized character alignment. Timed streaming uses newline-delimited JSON;
-concatenate decoded audio in response order. Streaming supports the 21 formats
-in the upstream schema (WAV is only available on nonstreaming routes).
+See the [supported API](docs/elevenlabs-compatibility.md),
+[Morse profile](docs/morse-audio.md), [realtime messages](docs/realtime-stt.md)
+and [Railway runbook](docs/railway-deployment.md).
+
+## Verify
 
 ```sh
-uv run --with-requirements contracts/requirements.txt \
-  python contracts/tts_smoke.py http://127.0.0.1:8787
+test -z "$(gofmt -l cmd internal)"
+go vet ./...
+go test ./...
+go test -race ./...
+docker build -t morsecode-audio:local .
 ```
 
-Encoding uses bounded memory/pipes; no media is written to disk. At most eight
-HTTP/WS synthesis jobs run concurrently; additional work receives 429. Requests
-have a 30-second processing/write deadline, including slow readers. Cancellation
-closes and joins any codec process. See [HTTP output behavior](docs/http-output.md)
-for timing, framing and error semantics.
-
-## Realtime STT
-
-Use `/v1/speech-to-text/realtime` with the same synthetic `xi-api-key`. The
-Scribe-compatible client sends base64 PCM or mu-law chunks and receives partials,
-committed transcripts and optional timing. Manual commits and Morse silence
-commits support repeated turns on one socket. See [the protocol and limits](docs/realtime-stt.md).
-
-```sh
-uv run --with-requirements contracts/requirements.txt \
-  python contracts/realtime_smoke.py http://127.0.0.1:8787
-```
-
-## Incremental TTS WebSocket
-
-Use `/v1/text-to-speech/morse/stream-input` for incremental text, flush and
-end-input. Authenticate with a header, first-message key or single-use TTS token.
-Audio arrives as base64 with character alignment; EOS produces one `isFinal`
-marker and a normal close. Flush keeps the connection usable for another phrase.
-See [the protocol, bounds and SDK fixture](docs/tts-websocket.md).
-
-```sh
-uv run --python 3.12 --with-requirements contracts/requirements.txt \
-  python contracts/tts_websocket_smoke.py http://127.0.0.1:8787
-```
-
-For multiple independent text streams on one socket, use
-`/v1/text-to-speech/morse/multi-stream-input`. Empty text is a context keepalive;
-`close_context` and `close_socket` control their respective lifecycles. See
-[multi-context behavior and acceptance](docs/multi-context-tts.md).
-
-```sh
-uv run --python 3.12 --with-requirements contracts/requirements.txt \
-  python contracts/multi_tts_smoke.py http://127.0.0.1:8787
-```
+The container runs one static Go binary as a nonroot user. SIGTERM stops
+readiness, cancels active sockets and drains HTTP within five seconds.

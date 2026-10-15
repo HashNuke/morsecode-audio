@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/HashNuke/morsecode-audio/internal/audio"
 	"github.com/HashNuke/morsecode-audio/internal/morse"
 )
 
@@ -52,44 +51,38 @@ func (s *Server) synthesize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	streaming := strings.Contains(r.URL.Path, "/stream")
-	timed := strings.HasSuffix(r.URL.Path, "/with-timestamps")
-	format, err := audio.ParseOutputFormat(r.URL.Query().Get("output_format"), streaming)
-	if err != nil {
+	rate := 16000
+	switch r.URL.Query().Get("output_format") {
+	case "", "pcm_16000":
+	case "pcm_8000":
+		rate = 8000
+	case "pcm_24000":
+		rate = 24000
+	case "pcm_48000":
+		rate = 48000
+	default:
 		writeError(w, 422, "unsupported_output_format", "Unsupported output format")
 		return
 	}
 	cfg := morse.DefaultConfig()
-	cfg.SampleRate = format.Rate
+	cfg.SampleRate = rate
 	encoder, err := morse.NewEncoder(input.Text, cfg)
 	if err != nil {
 		writeError(w, 422, err.Error(), "Cannot synthesize this Morse input")
 		return
 	}
-	output, err := audio.Encode(ctx, encoder, encoder.Samples, format)
-	if err != nil {
-		writeError(w, 503, "codec_unavailable", "Audio codec is unavailable")
-		return
-	}
-	defer output.Close()
-	if timed {
-		original := originalCharacters(input.Text, encoder.Characters)
-		if streaming {
-			writeTimedStream(w, ctx, output, format, original, encoder.Characters)
-		} else {
-			writeTimed(w, ctx, output, original, encoder.Characters)
-		}
-		return
-	}
+	// The encoder plans Morse runs but renders only the next buffer of PCM.
+	// Writes apply backpressure; cancellation never requires finishing the audio.
 	buffer := make([]byte, 4096)
-	n, readErr := output.Read(buffer)
+	n, readErr := encoder.Read(buffer)
 	if readErr != nil && readErr != io.EOF {
 		writeError(w, 502, "audio_encoding_failed", "Audio encoding failed")
 		return
 	}
-	w.Header().Set("Content-Type", format.MIME)
+	w.Header().Set("Content-Type", "audio/pcm")
 	w.Header().Set("Cache-Control", "no-store")
-	if !streaming && output.Size >= 0 {
-		w.Header().Set("Content-Length", strconv.FormatInt(output.Size, 10))
+	if !streaming {
+		w.Header().Set("Content-Length", strconv.Itoa(encoder.Samples*2))
 	}
 	for {
 		if ctx.Err() != nil {
@@ -111,6 +104,6 @@ func (s *Server) synthesize(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
-		n, readErr = output.Read(buffer)
+		n, readErr = encoder.Read(buffer)
 	}
 }

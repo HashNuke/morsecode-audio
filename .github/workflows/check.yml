@@ -11,36 +11,18 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
-      - run: sudo apt-get update && sudo apt-get install --no-install-recommends -y ffmpeg
-      - run: test -z "$(gofmt -l .)"
+      - run: test -z "$(gofmt -l cmd internal)"
       - run: go vet ./...
       - run: go test -race ./...
-      - run: go build ./cmd/morsecode-audio
-      - run: go -C .railway mod download && go -C .railway vet ./... && go -C .railway test ./...
-  container:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: sudo apt-get update && sudo apt-get install --no-install-recommends -y ffmpeg
-      - run: pip install -r contracts/requirements.txt
+      - run: go build -o /tmp/morse-smoke ./cmd/smoke
       - run: docker build -t morsecode-audio:ci .
-      - name: Check read-only image on injected port
+      - name: Verify read-only image and injected port
         run: |
           docker run -d --name morse-audio-ci --read-only --memory=512m --cpus=2 \
             -e PORT=9876 -e GOMEMLIMIT=256MiB -p 127.0.0.1:8787:9876 morsecode-audio:ci
           curl --retry 20 --retry-connrefused --retry-delay 1 --fail http://127.0.0.1:8787/readyz
-          python contracts/catalog_smoke.py http://127.0.0.1:8787
-          python contracts/speech_smoke.py http://127.0.0.1:8787
-          python contracts/tts_smoke.py http://127.0.0.1:8787
-          python contracts/realtime_smoke.py http://127.0.0.1:8787
-          python contracts/tts_websocket_smoke.py http://127.0.0.1:8787
-          python contracts/multi_tts_smoke.py http://127.0.0.1:8787
-          python contracts/token_smoke.py http://127.0.0.1:8787
-          python contracts/format_smoke.py http://127.0.0.1:8787
-          python contracts/drain_smoke.py http://127.0.0.1:8787 morse-audio-ci
+          /tmp/morse-smoke -base-url http://127.0.0.1:8787
+          docker stop --timeout 10 morse-audio-ci
           test "$(docker inspect --format '{{.State.ExitCode}}' morse-audio-ci)" = 0
       - if: always()
         run: docker rm -f morse-audio-ci || true

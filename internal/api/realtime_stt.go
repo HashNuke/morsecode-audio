@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/HashNuke/morsecode-audio/internal/audio"
 	"github.com/HashNuke/morsecode-audio/internal/morse"
 	"github.com/coder/websocket"
 )
@@ -70,9 +69,6 @@ func (s *Server) realtimeSTT(w http.ResponseWriter, r *http.Request) {
 		if err != nil || len(pcm) > maxRealtimeAudioBytes {
 			socket.failure("input_error", "Invalid base64 audio")
 			return
-		}
-		if options.Format == "ulaw_8000" {
-			pcm = audio.DecodeMuLaw(pcm)
 		}
 		events, err := decoder.Push(pcm)
 		if err != nil {

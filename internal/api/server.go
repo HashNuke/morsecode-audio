@@ -8,20 +8,17 @@ import (
 	"net/url"
 	"strings"
 	"sync/atomic"
-	"time"
 )
 
 type Server struct {
-	mux            *http.ServeMux
-	draining       atomic.Bool
-	ttsSlots       chan struct{}
-	sockets        *socketSet
-	tokens         *tokenStore
-	ttsInitTimeout time.Duration
+	mux      *http.ServeMux
+	draining atomic.Bool
+	ttsSlots chan struct{}
+	sockets  *socketSet
 }
 
 func New() *Server {
-	s := &Server{mux: http.NewServeMux(), ttsSlots: make(chan struct{}, 8), sockets: newSocketSet(), tokens: newTokenStore(), ttsInitTimeout: 5 * time.Second}
+	s := &Server{mux: http.NewServeMux(), ttsSlots: make(chan struct{}, 8), sockets: newSocketSet()}
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, 200, map[string]string{"status": "ok"}) })
 	s.mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
 		if s.draining.Load() {
@@ -31,20 +28,17 @@ func New() *Server {
 		writeJSON(w, 200, map[string]string{"status": "ready"})
 	})
 	s.mux.Handle("/v1/", s.auth(s.catalogRoutes()))
-	s.mux.Handle("/v2/", s.auth(s.catalogRoutes()))
-	s.mux.HandleFunc("GET /v1/text-to-speech/{voice_id}/stream-input", s.ttsWebSocket)
-	s.mux.HandleFunc("GET /v1/text-to-speech/{voice_id}/multi-stream-input", s.ttsMultiWebSocket)
 	return s
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// This public compatibility API uses explicit credentials only, never cookies
 	// or ambient browser authentication. All browser origins may use it.
-	if strings.HasPrefix(r.URL.Path, "/v1/") || strings.HasPrefix(r.URL.Path, "/v2/") {
+	if strings.HasPrefix(r.URL.Path, "/v1/") {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		if r.Method == "OPTIONS" {
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "content-type, xi-api-key, authorization")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "content-type, xi-api-key")
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
@@ -53,7 +47,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) Drain() {
 	s.draining.Store(true)
-	s.tokens.drain()
 	s.sockets.drain()
 }
 
@@ -72,21 +65,9 @@ func (s *Server) auth(next http.Handler) http.Handler {
 			writeError(w, 503, "not_ready", "Server is draining")
 			return
 		}
-		query, err := url.ParseQuery(r.URL.RawQuery)
+		_, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {
 			writeError(w, 422, "invalid_request", "Invalid query parameters")
-			return
-		}
-		if values, present := query["token"]; present {
-			if len(values) != 1 || !s.tokens.consume(values[0], speechTokenPurpose(r)) {
-				writeError(w, 401, "invalid_token", "Invalid, expired or already used speech token")
-				return
-			}
-			// Authentication is complete. Keep tokens out of speech options/events.
-			query.Del("token")
-			r = r.Clone(r.Context())
-			r.URL.RawQuery = query.Encode()
-			next.ServeHTTP(w, r)
 			return
 		}
 		if strings.TrimSpace(r.Header.Get("xi-api-key")) == "" {

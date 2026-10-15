@@ -63,7 +63,7 @@ func TestCatalogAuthentication(t *testing.T) {
 	}
 }
 
-func TestVoiceDiscoveryAndSettings(t *testing.T) {
+func TestVoiceDiscovery(t *testing.T) {
 	s := api.New()
 	w := request(s, "GET", "/v1/voices", "test")
 	var body struct {
@@ -76,12 +76,6 @@ func TestVoiceDiscoveryAndSettings(t *testing.T) {
 	}
 	if len(body.Voices) != 1 || body.Voices[0].ID != "morse" {
 		t.Fatalf("voices: %s", w.Body)
-	}
-	for _, path := range []string{"/v1/voices/morse", "/v1/voices/morse/settings", "/v1/voices/settings/default", "/v2/voices"} {
-		w := request(s, "GET", path, "test")
-		if w.Code != 200 || w.Header().Get("Content-Type") != "application/json" {
-			t.Fatalf("%s: %d %s", path, w.Code, w.Body)
-		}
 	}
 	if w := request(s, "GET", "/v1/voices/unknown", "test"); w.Code != 404 {
 		t.Fatalf("unknown voice: %d", w.Code)

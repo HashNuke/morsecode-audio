@@ -2,7 +2,7 @@
 
 The initial profile matches Vxpipe's local Morse codec: 700 Hz sine, amplitude
 4096, 60 ms dot, mono signed 16-bit little-endian PCM. Supported rates are 8000,
-16000, 22050, 24000, 32000, 44100 and 48000 Hz. Dots/dashes are 1/3 units; symbol,
+16000, 24000 and 48000 Hz at the API boundary. Dots/dashes are 1/3 units; symbol,
 letter and word gaps are 1/3/7 units. Synthesis appends 14 units of silence.
 
 The alphabet contains A–Z, digits and `. , : ? ' - / ( ) " = + @`. Text is
@@ -15,25 +15,6 @@ The encoder validates text length and rendered duration before producing PCM,
 then renders lazily into caller-sized chunks. Arbitrary byte reads, including
 split samples, produce identical audio. No full synthesized audio buffer is
 required. Oscillator phase restarts at the beginning of each mark.
-
-The incremental text planner (`StreamEncoder`) is the transport-free foundation
-for TTS WebSockets. `Append` returns finite lazy PCM fragments without an utterance
-tail. It carries the pending letter/word boundary across messages and whitespace-only
-fragments; `Finish` adds one 14-unit tail. Empty streams produce no audio. A single
-owner submits text in order and renders the returned readers in the same order.
-Each fragment reports its own sample count and normalized character times on the
-cumulative stream clock. Original-text alignment and WS scheduling remain handler
-work, not capabilities claimed by this planner.
-
-Text-byte and audio-duration limits apply across the complete stream, reserving
-room for final silence. Invalid fragments leave prior state intact; finalization
-is one-way. The planner retains counters and a pending-gap flag, not past text or
-audio. Callers must bound their own queues of returned readers. Tests first failed
-because the planner did not exist. Independent E/T tone/gap intervals now pass;
-84 deterministic randomized fragmentation cases across seven rates match finite
-PCM and alignment, including Unicode whitespace and odd read boundaries. Atomic
-failure, cumulative limits, empty streams and repeated finalization checks pass
-under the race detector, as do the full Go suite and vet.
 
 The decoder retains an analysis window, up to eight pending marks and bounded
 transcript/alignment data. Its 10-ms detector checks signal energy and zero

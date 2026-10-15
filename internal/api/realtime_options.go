@@ -46,7 +46,7 @@ func parseRealtimeOptions(q url.Values) (realtimeOptions, error) {
 		o.Format = value
 	}
 	switch o.Format {
-	case "pcm_8000", "pcm_16000", "pcm_22050", "pcm_24000", "pcm_44100", "pcm_48000", "ulaw_8000":
+	case "pcm_8000", "pcm_16000", "pcm_24000", "pcm_48000":
 		o.Rate, _ = strconv.Atoi(strings.SplitN(o.Format, "_", 2)[1])
 	default:
 		return o, errors.New("unsupported_audio_format")
