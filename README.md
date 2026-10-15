@@ -6,7 +6,9 @@ not recognize human speech or call ElevenLabs. All endpoints are public.
 No database, registration, retained content or external audio codec is needed.
 
 Audio streams: HTTP TTS renders and flushes small PCM buffers as they are
-requested; realtime STT consumes PCM chunks and emits partial/final transcripts.
+requested. Realtime TTS accepts incremental text over WebSocket and returns
+base64 PCM audio frames plus `isFinal`. Realtime STT consumes PCM chunks and
+emits partial/committed transcripts.
 Cancellation and socket backpressure bound work. The multipart STT endpoint is
 a convenience for complete PCM/WAV files, not the live room path.
 
@@ -35,7 +37,7 @@ curl -H 'Content-Type: application/json' \
 Choose another free port if necessary. Environment files are examples; the app
 reads process variables and does not load `.env` itself. The smoke command
 requires an explicit origin, never follows
-redirects and exits nonzero on failure. It checks the live HTTP and STT WS paths.
+redirects and exits nonzero on failure. It checks HTTP and both realtime WebSocket speech paths.
 
 Vxpipe uses one `morse_code_api` adapter with its normal TTS/STT components.
 Set `MORSE_CODE_API_BASE_URL=http://127.0.0.1:8787` in Vxpipe for local use;
@@ -43,7 +45,7 @@ after deployment, set it to `https://morsecode.vxpipe.com` and restart.
 The endpoint is not part of the saved service credential or call spec.
 
 See the [supported API](docs/elevenlabs-compatibility.md),
-[Morse profile](docs/morse-audio.md), [realtime messages](docs/realtime-stt.md)
+[Morse profile](docs/morse-audio.md), [realtime STT](docs/realtime-stt.md), [realtime TTS](docs/realtime-tts.md)
 and [Railway runbook](docs/railway-deployment.md).
 For repeatable throughput and latency checks, use [the load-test guide](docs/load-test.md)
 and `bin/loadtest https://morsecode.vxpipe.com`.

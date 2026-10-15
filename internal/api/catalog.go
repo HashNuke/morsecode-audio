@@ -6,6 +6,7 @@ func (s *Server) catalogRoutes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /v1/text-to-speech/{voice_id}", s.synthesize)
 	mux.HandleFunc("POST /v1/text-to-speech/{voice_id}/stream", s.synthesize)
+	mux.HandleFunc("GET /v1/text-to-speech/{voice_id}/stream-input", s.realtimeTTS)
 	mux.HandleFunc("POST /v1/speech-to-text", s.transcribe)
 	mux.HandleFunc("GET /v1/speech-to-text/realtime", s.realtimeSTT)
 	mux.HandleFunc("GET /v1/models", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, 200, models()) })

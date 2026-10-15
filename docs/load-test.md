@@ -14,9 +14,9 @@ bin/loadtest https://morsecode.vxpipe.com > /tmp/morse-loadtest.json
 ```
 
 Defaults: four concurrent clients, a ten-second request launch window for each
-of three sequential scenarios, and a ten-second timeout per operation. Each
+of four sequential scenarios, and a ten-second timeout per operation. Each
 scenario drains its in-flight work before the next starts, so total runtime can
-exceed thirty seconds. First invocation also compiles the client.
+exceed forty seconds. First invocation also compiles the client.
 
 Flags go before the URL:
 
@@ -37,7 +37,7 @@ go build -o /tmp/morse-loadtest ./cmd/loadtest
 /tmp/morse-loadtest -concurrency 4 https://morsecode.vxpipe.com
 ```
 
-Concurrency is bounded to 1–64, launch windows to 1–60 seconds per scenario,
+Concurrency is bounded to 1–128, launch windows to 1–60 seconds per scenario,
 timeouts to 1–30 seconds, and input text to thirty seconds of synthesized audio.
 Ctrl-C cancels in-flight work and prevents new requests. Redirects are rejected;
 the target must be an HTTP(S) origin without credentials, paths or query strings.
@@ -54,12 +54,15 @@ locally, outside measured requests, using the committed Morse encoder.
 | --- | --- |
 | `tts` | Stream `/v1/text-to-speech/morse/stream`; check content type, complete byte count and SHA-256 against the local fixture. Consume audio incrementally. |
 | `batch-stt` | Upload the fixture to `/v1/speech-to-text`; require the exact expected transcript. |
+| `realtime-tts` | Open a fresh WebSocket; initialize, send text character by character, then EOS while reading audio concurrently. Require exact PCM byte count/hash and `isFinal`. |
 | `realtime-stt` | Open a fresh WebSocket, await `session_started`, send 640-byte PCM chunks, read events concurrently, and manually commit the final chunk. Require cumulative partials and the exact committed transcript. Close the socket after each turn. |
 
 HTTP connections are reused. Each realtime operation includes a fresh WebSocket
-handshake and one turn. PCM chunks represent 20 ms of audio but are sent as fast
-as the network allows: this stresses decoding and connection turnover, rather
-than simulating microphone pacing or many long-lived idle sessions. Scenarios
+handshake and one turn. Without `-pace`, input is sent as fast as the network
+allows. With `-pace`, STT sends 20-ms chunks at audio speed; TTS sends one
+character per 100 ms, as an incremental text source might. Audio is always read
+as soon as it arrives. TTS measures generation, not speaker playback duration.
+Neither mode simulates many-turn hour-long connections. Scenarios
 run separately; this is not a mixed-workload benchmark. The fixture shares the
 production encoder, so these checks detect transport/corruption/regression
 failures, not independent conformance with the Morse standard.
@@ -67,14 +70,17 @@ failures, not independent conformance with the Morse standard.
 ## Report
 
 Progress goes to stderr; stdout is one JSON report with UTC start time, target,
-text, audio duration, concurrency, launch window, timeout and per-scenario data:
+text, audio duration, concurrency, pacing, launch window, timeout and per-scenario data:
 
 - `attempts`, `success`, `capacity_429`, `errors`, and categorized `error_kinds`.
 - `elapsed_seconds` includes draining operations already in flight.
 - `success_per_second` divides successful operations by that full elapsed time.
 - `latency_ms` gives nearest-rank p50/p95/p99/max for successful operations only.
 - `first_byte_or_partial_ms` measures first PCM byte for TTS, and first nonempty
-  partial including connection setup for realtime STT. It is zero for batch STT.
+  partial including connection setup for realtime STT; first decoded audio for
+  realtime TTS. It is zero for batch STT.
+- `peak_realtime_sessions` counts overlapping upgraded client connections;
+  this is a client observation, not a server-side occupancy metric.
 
 Exit status is zero only if every selected scenario has successes and no errors
 or capacity rejections. Nonzero also covers cancellation and invalid options.
@@ -97,6 +103,33 @@ After each run, confirm the normal speech boundary remains healthy:
 ```bash
 go run ./cmd/smoke -base-url https://morsecode.vxpipe.com
 ```
+
+## Realtime capacity checks
+
+The server admits 64 STT sockets and eight TTS sockets/HTTP requests combined.
+A connected TTS socket holds a slot even when waiting for text. Test below those
+limits first, then at the limit; a deliberate above-limit run should return 429s.
+Do not raise the service limits or instance size just to hide failed checks.
+
+```bash
+bin/loadtest -scenario realtime-stt -pace -concurrency 8 -duration 10s \
+  https://morsecode.vxpipe.com
+bin/loadtest -scenario realtime-stt -pace -concurrency 32 -duration 10s \
+  https://morsecode.vxpipe.com
+bin/loadtest -scenario realtime-stt -pace -concurrency 64 -duration 10s \
+  https://morsecode.vxpipe.com
+bin/loadtest -scenario realtime-tts -pace -concurrency 4 -duration 10s \
+  https://morsecode.vxpipe.com
+bin/loadtest -scenario realtime-tts -pace -concurrency 8 -duration 10s \
+  https://morsecode.vxpipe.com
+```
+
+For explicit rejection checks use 65 STT or nine TTS clients. Those runs exit
+nonzero when 429s occur, by design. Small differences between client connection
+lifetimes and server cleanup can also produce brief 429s during turnover at the
+configured limit. Read successes, rejection counts and errors separately.
+Paced STT total latency includes the 2.46-second SOS input; first-partial latency
+includes the Morse letter gap. Neither is solely server processing time.
 
 ## Verify the load client
 

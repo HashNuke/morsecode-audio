@@ -91,3 +91,25 @@ func TestCanceledLoadDoesNotStartRequests(t *testing.T) {
 		t.Fatalf("started work after cancellation: %+v", r)
 	}
 }
+
+func TestRealtimeTTSLoadUsesIncrementalWebSocketInput(t *testing.T) {
+	app := api.New()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" {
+			http.Error(w, "HTTP fallback forbidden", 404)
+			return
+		}
+		app.ServeHTTP(w, r)
+	}))
+	defer server.Close()
+	target, err := newTarget(server.URL, "SOS")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer target.client.CloseIdleConnections()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if first, err := target.exercise(ctx, "realtime-tts"); err != nil || first <= 0 {
+		t.Fatalf("realtime TTS load failed: first=%s err=%v", first, err)
+	}
+}

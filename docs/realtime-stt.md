@@ -35,6 +35,14 @@ Manual commit is also available with `commit_strategy=manual` and
 The default model alias `scribe_v2_realtime` performs the same Morse operation.
 Unsupported query fields and duplicate parameters fail explicitly.
 
+The final segment event is `committed_transcript` for both manual and automatic
+commits. The public ElevenLabs API has no separate `final_transcript`,
+`speech_started` or `turn_ended` event. A word gap alone does not commit a Morse
+turn. Timestamp events supplement the committed event, not another turn.
+Configured `keepalive_interval_ms` is echoed in `session_started.config`;
+it is null when disabled. Entity extraction and transcript editing are outside
+this Morse API. See the [official event reference](https://elevenlabs.io/docs/eleven-api/guides/how-to/speech-to-text/realtime/event-reference).
+
 Each session has one decoder and no unbounded audio queue. At most 64 sockets
 are admitted; messages are bounded to 512 KiB and decoded chunks to 256 KiB.
 Sessions have a one-hour lifetime, a 30-second application-message idle deadline

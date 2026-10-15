@@ -11,15 +11,16 @@ import (
 )
 
 type realtimeOptions struct {
-	Model      string  `json:"model_id"`
-	Format     string  `json:"audio_format"`
-	Rate       int     `json:"sample_rate"`
-	Commit     string  `json:"commit_strategy"`
-	Language   string  `json:"language_code"`
-	Timestamps bool    `json:"include_timestamps"`
-	Logging    bool    `json:"enable_logging"`
-	Silence    float64 `json:"vad_silence_threshold_secs"`
-	Keepalive  int     `json:"-"`
+	Model         string  `json:"model_id"`
+	Format        string  `json:"audio_format"`
+	Rate          int     `json:"sample_rate"`
+	Commit        string  `json:"commit_strategy"`
+	Language      string  `json:"language_code"`
+	Timestamps    bool    `json:"include_timestamps"`
+	Logging       bool    `json:"enable_logging"`
+	Silence       float64 `json:"vad_silence_threshold_secs"`
+	Keepalive     int     `json:"-"`
+	KeepaliveEcho *int    `json:"keepalive_interval_ms"`
 }
 
 var languagePattern = regexp.MustCompile(`^[a-z]{2,3}$`)
@@ -88,6 +89,7 @@ func parseRealtimeOptions(q url.Values) (realtimeOptions, error) {
 			return o, errors.New("invalid_keepalive_interval")
 		}
 		o.Keepalive = interval
+		o.KeepaliveEcho = &interval
 	}
 	return o, nil
 }

@@ -28,7 +28,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Morse smoke failed:", err)
 		os.Exit(1)
 	}
-	fmt.Println("Morse smoke passed: readiness, public discovery, streamed PCM, batch and realtime recognition.")
+	fmt.Println("Morse smoke passed: readiness, public discovery, HTTP and realtime TTS, batch and realtime STT.")
 }
 
 func run(origin string) error {
@@ -78,6 +78,9 @@ func run(origin string) error {
 	}
 	if len(pcm) != 16000*60/1000*(1+7+3+14)*2 {
 		return errors.New("TTS returned incorrect Morse duration")
+	}
+	if err := checkRealtimeTTS(ctx, client, *u, pcm); err != nil {
+		return err
 	}
 	var body bytes.Buffer
 	form := multipart.NewWriter(&body)
@@ -130,6 +133,52 @@ func run(origin string) error {
 			return nil
 		default:
 			return errors.New("unexpected realtime STT event")
+		}
+	}
+}
+
+func checkRealtimeTTS(ctx context.Context, client *http.Client, u url.URL, expected []byte) error {
+	u.Scheme = map[string]string{"http": "ws", "https": "wss"}[u.Scheme]
+	u.Path = "/v1/text-to-speech/morse/stream-input"
+	u.RawQuery = "model_id=morse_v1&output_format=pcm_16000&auto_mode=true"
+	conn, _, err := websocket.Dial(ctx, u.String(), &websocket.DialOptions{HTTPClient: client})
+	if err != nil {
+		return errors.New("realtime TTS connection failed")
+	}
+	defer conn.CloseNow()
+	for _, text := range []string{" ", "E "} {
+		if wsjson.Write(ctx, conn, map[string]string{"text": text}) != nil {
+			return errors.New("realtime TTS input failed")
+		}
+	}
+	var actual []byte
+	sentRest := false
+	for {
+		var event struct {
+			Audio string `json:"audio"`
+			Final bool   `json:"isFinal"`
+		}
+		if wsjson.Read(ctx, conn, &event) != nil {
+			return errors.New("realtime TTS output missing")
+		}
+		if event.Final {
+			if !bytes.Equal(actual, expected) {
+				return errors.New("realtime TTS PCM mismatch")
+			}
+			return nil
+		}
+		pcm, err := base64.StdEncoding.DecodeString(event.Audio)
+		if err != nil || len(pcm) == 0 || len(actual)+len(pcm) > len(expected) {
+			return errors.New("invalid realtime TTS audio")
+		}
+		actual = append(actual, pcm...)
+		if !sentRest {
+			for _, text := range []string{"T", ""} {
+				if wsjson.Write(ctx, conn, map[string]string{"text": text}) != nil {
+					return errors.New("realtime TTS continuation failed")
+				}
+			}
+			sentRest = true
 		}
 	}
 }

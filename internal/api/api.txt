@@ -70,9 +70,66 @@ selected rate. There is no file header. Read the response body incrementally as
 bytes arrive. Network chunks need not align with sample boundaries; carry any
 trailing byte into the next chunk.
 
-The request contains the full text; audio is streamed. Realtime TTS over
-WebSocket is not implemented. For a response with Content-Length, use the same
-request at POST /v1/text-to-speech/morse (without /stream).
+The HTTP request contains the full text; audio is streamed. For a response with
+Content-Length, use POST /v1/text-to-speech/morse (without /stream).
+
+## Realtime text to audio
+
+Send text incrementally and receive audio before the last text fragment arrives.
+WebSocket endpoint:
+
+```text
+wss://morsecode.vxpipe.com/v1/text-to-speech/morse/stream-input
+```
+
+Append these query parameters:
+
+```text
+model_id=morse_v1
+output_format=pcm_16000
+auto_mode=true
+```
+
+1. Connect and send the initialization message: {"text":" "}.
+2. Send text fragments while reading audio messages continuously.
+3. Send {"text":""} to finish; wait for isFinal: true.
+
+Each line below is a separate JSON message:
+
+```json
+{"text":" "}
+{"text":"S"}
+{"text":"OS TEST","flush":true}
+{"text":""}
+```
+
+Fragments concatenate literally: S then OS produces SOS; SOS followed by a space
+then TEST produces two words. Each fragment generates audio immediately, without
+a minimum character threshold. Fragment boundaries add no final silence.
+
+Server messages use ElevenLabs' audio and camel-case isFinal fields:
+
+```json
+{"audio":"BASE64_PCM","isFinal":false}
+{"audio":null,"isFinal":true}
+```
+
+Decode audio with standard base64. It is raw mono PCM16, at the selected output
+rate (8/16/24/48 kHz). Each audio message holds at most 4096 decoded bytes.
+Read messages while sending text; the server applies socket backpressure.
+
+flush: true finishes the current utterance with its 840-ms silence tail, then
+keeps the connection open for more text. It does not emit isFinal. Empty text
+finishes remaining audio, emits isFinal: true and closes normally. Closing the
+socket yourself cancels unfinished work. Do not append a tail per fragment.
+
+A single-space message keeps the connection alive and separates words if an
+utterance is active. Idle timeout is 20 seconds by default; inactivity_timeout
+accepts 1 to 180 seconds. Text/audio limits reset after each flush.
+
+Morse uses fixed timing and no contextual generation buffer. auto_mode and
+try_trigger_generation do not delay output. There is no alignment output,
+SSML, MP3 or multi-context endpoint.
 
 ## Audio to text
 
@@ -190,6 +247,9 @@ together.
 
 Partial text is provisional: replace it, do not append each partial. Only
 committed text completes a turn. Empty commits do not emit a transcript.
+There are no separate speech_started, turn_ended or final_transcript events.
+A committed_transcript is the final segment for manual and automatic commits;
+it does not establish that a speaker has finished a conversational turn.
 
 For automatic commits, set commit_strategy=vad and
 vad_silence_threshold_secs=0.84. Send actual PCM silence after a turn. Waiting
@@ -225,17 +285,22 @@ https://www.itu.int/rec/R-REC-M.1677-1-200910-I/en
 https://www.arrl.org/files/file/Technology/x9004008.pdf
 
 ```text
-Text                     4096 UTF-8 bytes
-Synthesized duration     300 seconds per request
+Text per TTS utterance    4096 UTF-8 bytes
+Synthesized duration     300 seconds per utterance
 Batch audio upload       12 MiB
 Batch audio duration     300 seconds
-Concurrent TTS requests  8
-Concurrent STT sockets   64
-Decoded PCM per message  256 KiB
-WebSocket message        512 KiB
+TTS capacity             8 HTTP requests / connected sockets combined
+STT capacity             64 connected sockets (separate pool)
+STT PCM per message      256 KiB decoded
+STT WebSocket message    512 KiB
+TTS WebSocket message    64 KiB incoming
 WebSocket session        1 hour
-Idle timeout             30 seconds
+STT idle timeout         30 seconds
+TTS idle timeout         20 seconds (configurable 1 to 180)
 ```
+
+A connected TTS socket holds a synthesis slot even while waiting for text.
+These are admission limits, not a promise of performance for every workload.
 
 MP3, human speech, voice cloning and the rest of the ElevenLabs platform are not
 supported. Use the routes and fields documented here; do not assume SDK parity.
@@ -265,9 +330,10 @@ Check the status before treating a response as PCM. If a stream ends early,
 discard the incomplete audio before retrying. Stop reading/close the connection
 to cancel a request. There is no idempotency-key support.
 
-After a WebSocket upgrade, failures are JSON events with message_type (such as
-input_error) and error text, followed by connection close. Correct invalid audio
-before reconnecting; do not retry bad input unchanged.
+After a WebSocket upgrade, STT failures contain message_type (such as
+input_error) and error text. TTS failures contain error and message. Both close
+the connection. Correct invalid input before reconnecting; do not retry bad
+input unchanged.
 
 ## Discovery and health
 

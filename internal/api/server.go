@@ -11,14 +11,17 @@ import (
 )
 
 type Server struct {
-	mux      *http.ServeMux
-	draining atomic.Bool
-	ttsSlots chan struct{}
-	sockets  *socketSet
+	mux        *http.ServeMux
+	draining   atomic.Bool
+	ttsSlots   chan struct{}
+	sockets    *socketSet
+	ttsSockets *socketSet
 }
 
 func New() *Server {
 	s := &Server{mux: http.NewServeMux(), ttsSlots: make(chan struct{}, 8), sockets: newSocketSet()}
+	s.ttsSockets = newSocketSet()
+	s.ttsSockets.capacity = 8
 	s.mux.HandleFunc("GET /{$}", home)
 	s.mux.HandleFunc("GET /llms.txt", reference)
 	s.mux.HandleFunc("GET /assets/inter-variable.woff2", font)
@@ -50,15 +53,18 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *Server) Drain() {
 	s.draining.Store(true)
 	s.sockets.drain()
+	s.ttsSockets.drain()
 }
 
 func (s *Server) WaitSockets(ctx context.Context) error {
-	select {
-	case <-s.sockets.done:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
+	for _, sockets := range []*socketSet{s.sockets, s.ttsSockets} {
+		select {
+		case <-sockets.done:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
+	return nil
 }
 
 func (s *Server) apiRequests(next http.Handler) http.Handler {

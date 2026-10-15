@@ -43,6 +43,36 @@ func readSTT(t *testing.T, ctx context.Context, c *websocket.Conn) map[string]an
 	return message
 }
 
+func TestRealtimeSTTElevenLabsEventContract(t *testing.T) {
+	s := httptest.NewServer(api.New())
+	defer s.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	c, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(s.URL, "http")+"/v1/speech-to-text/realtime?commit_strategy=vad&include_timestamps=true&keepalive_interval_ms=1000", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.CloseNow()
+	started := readSTT(t, ctx, c)
+	if started["message_type"] != "session_started" {
+		t.Fatal("missing session_started")
+	}
+	config := started["config"].(map[string]any)
+	if config["keepalive_interval_ms"] != float64(1000) {
+		t.Fatal("session config must echo keepalive interval")
+	}
+	sendSTT(t, ctx, c, independentMorse("E E", 16000), 16000, false)
+	for _, expected := range []struct{ kind, text string }{{"partial_transcript", "E"}, {"partial_transcript", "E E"}, {"committed_transcript", "E E"}, {"committed_transcript_with_timestamps", "E E"}} {
+		event := readSTT(t, ctx, c)
+		if event["message_type"] != expected.kind || event["text"] != expected.text {
+			t.Fatalf("unexpected transcript/turn event: %v", event)
+		}
+		if expected.kind == "committed_transcript_with_timestamps" && (event["words"] == nil || event["language_code"] == nil) {
+			t.Fatal("missing timestamp event fields")
+		}
+	}
+}
+
 func sendSTT(t *testing.T, ctx context.Context, c *websocket.Conn, data []byte, rate int, commit bool) {
 	t.Helper()
 	if err := wsjson.Write(ctx, c, map[string]any{"message_type": "input_audio_chunk", "audio_base_64": base64.StdEncoding.EncodeToString(data), "sample_rate": rate, "commit": commit}); err != nil {
