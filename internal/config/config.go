@@ -31,11 +31,11 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 	tts, err := capacity(getenv("MAX_TTS_CONCURRENCY"), 8)
 	if err != nil {
-		return Config{}, errors.New("MAX_TTS_CONCURRENCY must be between 1 and 1000")
+		return Config{}, errors.New("MAX_TTS_CONCURRENCY must be a positive integer")
 	}
 	stt, err := capacity(getenv("MAX_STT_CONNECTIONS"), 64)
 	if err != nil {
-		return Config{}, errors.New("MAX_STT_CONNECTIONS must be between 1 and 1000")
+		return Config{}, errors.New("MAX_STT_CONNECTIONS must be a positive integer")
 	}
 	return Config{Host: host, Port: n, MaxTTSConcurrency: tts, MaxSTTConnections: stt}, nil
 }
@@ -47,7 +47,7 @@ func capacity(value string, fallback int) (int, error) {
 		return fallback, nil
 	}
 	n, err := strconv.Atoi(value)
-	if err != nil || n < 1 || n > 1000 {
+	if err != nil || n < 1 {
 		return 0, errors.New("invalid capacity")
 	}
 	return n, nil

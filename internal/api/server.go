@@ -22,7 +22,7 @@ func New() *Server { return NewWithLimits(8, 64) }
 
 // NewWithLimits uses startup-validated speech admission limits.
 func NewWithLimits(tts, stt int) *Server {
-	if tts < 1 || tts > 1000 || stt < 1 || stt > 1000 {
+	if tts < 1 || stt < 1 {
 		panic("invalid speech capacity")
 	}
 	s := &Server{mux: http.NewServeMux(), ttsSlots: make(chan struct{}, tts), sockets: newSocketSet()}

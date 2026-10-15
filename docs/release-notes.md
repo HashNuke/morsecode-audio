@@ -1,8 +1,10 @@
-Sustained realtime load tests now accept up to 1,000 concurrent clients.
+Realtime load tests and server admission settings now accept positive client
+counts above 1,000, so capacity searches can increase until a workload fails.
 Server owners can configure `MAX_TTS_CONCURRENCY` and `MAX_STT_CONNECTIONS`
-(1–1000) for explicit capacity experiments; normal defaults remain 8 and 64.
+for explicit capacity experiments; normal defaults remain 8 and 64.
 The homepage and plain-text reference explain development-workflow use and
-self-hosting through the GitHub repository.
+self-hosting through a labeled GitHub link. Presentation-only tests and
+redundant cases have been removed; protocol and lifecycle checks remain.
 
 For example:
 

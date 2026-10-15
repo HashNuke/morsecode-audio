@@ -79,7 +79,7 @@ settings. See [Cloudflare's email obfuscation exclusions](https://developers.clo
 ## Capacity experiments
 
 `MAX_TTS_CONCURRENCY` defaults to 8 (HTTP and connected TTS sockets combined);
-`MAX_STT_CONNECTIONS` defaults to 64. Both accept integers 1–1000 at process
+`MAX_STT_CONNECTIONS` defaults to 64. Both accept positive integers at process
 startup. They are admission limits, not a performance promise. For an explicitly
 authorized capacity search, raise them temporarily without changing instance
 resources, measure sustained sessions, then restore the normal settings. Record

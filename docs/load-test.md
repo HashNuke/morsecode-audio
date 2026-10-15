@@ -45,8 +45,9 @@ throughout the hold period rather than merely opening idle connections.
 The default configuration admits 64 STT sockets and eight TTS sockets/HTTP requests
 combined. A connected TTS socket holds its slot even while waiting for input.
 Start below those limits, then at them. A 65-STT or nine-TTS test should show
-capacity rejections. For a hardware-capacity experiment, the server owner can explicitly raise
-`MAX_STT_CONNECTIONS` and `MAX_TTS_CONCURRENCY` (each 1–1000). Otherwise a
+capacity rejections. For a hardware-capacity experiment, the server owner can
+explicitly raise
+`MAX_STT_CONNECTIONS` and `MAX_TTS_CONCURRENCY` (positive integers). Otherwise a
 1,000-client run measures admission rejection rather than machine capacity.
 Keep resources fixed, record the temporary limits, and restore normal limits
 afterwards. Do not silently raise limits during an ordinary test.
@@ -63,7 +64,7 @@ Flags go after the service and before the URL; both `-flag` and `--flag` work.
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `--concurrency` | 4 | Workers, 1–1000. Realtime workers each own one connection. |
+| `--concurrency` | 4 | Positive worker count. Realtime workers each own one connection. |
 | `--duration` | 10s | Realtime session hold / HTTP request-launch window, 1s–10m. |
 | `--timeout` | 10s | Each handshake or turn deadline, 1s–2m; independent of hold duration. |
 | `--text` | SOS | Text per turn; limited to 30 seconds of synthesized audio. |
@@ -80,18 +81,24 @@ There are no automatic retries, and no server-only benchmark routes or storage.
 ## Searching for capacity
 
 With admission explicitly configured to permit the experiment, start at 1,000
-clients for 90 seconds. Test services separately. A passing stage must have all
+clients for 30 seconds. Test services separately. A passing stage must have all
 requested original sessions succeed, no errors/429s, peak concurrency matching
-the request, and a shortest successful session of at least 90 seconds.
-If 1,000 fails, test the midpoint between it and a known passing count. Repeat
-until the bracket is useful (for example within 32 sessions). Report the highest
-observed pass and the failing bracket, not a precise universal maximum.
+the request, and a shortest successful session of at least 30 seconds. Each turn
+must complete within `--timeout` (10 seconds by default). Report first-response
+latency alongside failures; a stricter latency target can lower the usable limit.
+
+If a stage passes, increase by 1,000 until the first failure. Then test midpoints
+between the passing and failing counts until the bracket is useful (for example
+within 32 sessions). Recheck the highest passing count before reporting it.
+Raise the server's admission setting before testing above its current cap;
+429s measure admission policy, not hardware capacity. Keep instance resources
+fixed. Report observed passes/failures, not a precise universal maximum.
 Network, proxy limits and load-generator limits also affect results.
 
 ```sh
-morsecode-audio loadtest realtime-stt --concurrency 1000 --duration 90s \
+morsecode-audio loadtest realtime-stt --concurrency 1000 --duration 30s \
   https://morsecode.vxpipe.com
-morsecode-audio loadtest realtime-tts --concurrency 1000 --duration 90s \
+morsecode-audio loadtest realtime-tts --concurrency 1000 --duration 30s \
   https://morsecode.vxpipe.com
 ```
 
