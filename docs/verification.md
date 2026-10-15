@@ -1,4 +1,19 @@
-# Local verification — 2026-10-15
+# Persistent realtime TTS verification — 2026-10-15
+
+The multi-context WebSocket endpoint passed protocol, cancellation, bounded
+queue, error ordering and lifecycle tests, including the race detector.
+Independent review reproduced and verified fixes for cancellation behind a
+full queue and audio arriving after a terminal error.
+
+Vxpipe's isolated live-provider test passed against the local Go binary:
+two utterances on one real socket at 8/16/24/48 kHz, independent Morse decoding,
+exact PCM lengths, cancellation followed by another utterance, and socket
+cleanup. No telephony was used. Chrome inspection at desktop and mobile
+widths verified the updated homepage reference and horizontally scrollable
+code examples without page overflow.
+
+## Earlier PCM simplification evidence
+
 
 The simplified PCM implementation passes `go vet ./...`, `go test ./...` and
 `go test -race -count=1 ./...` (35 passing tests/subtests, no failures).

@@ -41,10 +41,11 @@ Voice styling fields do not alter Morse; `speed` must be absent or 1.
 
 The PCM default and supported rates are identical to HTTP TTS: 8/16/24/48 kHz,
 mono signed 16-bit little-endian. Audio events hold at most 4,096 decoded bytes.
-No MP3, SSML, pronunciation dictionaries, alignment output, or multi-context
-protocol is implemented. `sync_alignment=true` is rejected explicitly.
+No MP3, SSML, pronunciation dictionaries, alignment output, or compressed
+formats are implemented. `sync_alignment=true` is rejected explicitly.
 `enable_logging` cannot enable retention. Unsupported parameters and fields
-fail rather than silently invoking a different service.
+fail rather than silently invoking a different service. Multi-context
+synthesis lives on the `multi-stream-input` route below.
 
 Up to eight TTS sockets/HTTP requests share one synthesis capacity pool. A TTS
 socket reserves its slot for its lifetime, including time waiting for text.
@@ -76,3 +77,78 @@ load client can send paced text through `-scenario realtime-tts -pace`.
 
 Protocol sources: [ElevenLabs WebSocket reference](https://elevenlabs.io/docs/api-reference/text-to-speech/v-1-text-to-speech-voice-id-stream-input)
 and [realtime TTS guide](https://elevenlabs.io/docs/eleven-api/guides/how-to/websockets/realtime-tts).
+
+## Multi-context synthesis on one socket
+
+Connect to `wss://morsecode.vxpipe.com/v1/text-to-speech/morse/multi-stream-input`
+with the same query parameters. This follows the ElevenLabs multi-stream-input
+subset: every message carries a `context_id` (1–128 characters, `default` when
+absent) and every response carries the camel-case `contextId`:
+
+```json
+{"text":" ","context_id":"utterance-1"}
+{"text":"SOS","context_id":"utterance-1"}
+{"context_id":"utterance-1","flush":true}
+{"context_id":"utterance-1","close_context":true}
+```
+
+A new context also accepts its first text immediately, without the
+single-space prologue (`InitialiseContext`):
+
+```json
+{"text":"SOS ","context_id":"utterance-2"}
+```
+
+Received messages contain base64 PCM correlated to the context:
+
+```json
+{"audio":"BASE64_PCM","isFinal":false,"contextId":"utterance-1"}
+{"audio":null,"isFinal":true,"contextId":"utterance-1"}
+```
+
+`flush` finishes exactly that sentence, including its 840-ms tail, but leaves
+the context open: no `isFinal` is sent, and later text with the same ID
+continues the same context with fresh utterance timing. Each flush also seals
+its generation with a fresh cancellation token, so a later close suppresses
+only post-flush text while exactly the promised flushed PCM drains, across
+any number of flushes in waveform order. Only `close_context`
+ends a context, with exactly one audio-free `isFinal`. Closing an unflushed
+context cancels it: frames already written stand, outstanding audio is
+suppressed, and the terminal still arrives. Closing an already-flushed context
+sends the terminal with no duplicate tail. Closing an unknown context is an
+idempotent `isFinal`, never an error, and a closed ID may initialize again as
+a new, unlinked context. `{"text":"","context_id":...}` is a keepalive: it
+resets that context's inactivity clock without audio or completion.
+`{"close_socket":true}` lets already-flushed contexts finish, cancels
+never-flushed contexts without synthesizing them, sends every terminal in
+sorted ID order, then closes normally.
+
+One socket carries at most five contexts; the sixth is rejected with
+`too_many_contexts` and the socket closes. Text on an unknown context
+initializes it immediately with that text (`InitialiseContext`); only a bare
+flush with no text for an unknown context is a protocol error
+(`unknown_context`) that closes the socket. Idle contexts
+retire separately with terminals and free their slots while busier contexts on
+the same socket keep working; the socket itself only closes after a full
+inactivity window with no messages at all. Each context keeps its own
+encoder, 4,096-byte input budget and completion; frames never cross contexts,
+so late audio cannot leak into the next utterance. The handler is one reader
+plus one writer with a 64-job bounded queue and 4,096-byte frames, and the
+reader never writes while the writer runs: every terminal error stops and
+joins the writer first, so the error is strictly the last write and audio
+never arrives after it. Fragments
+that synthesize to zero PCM (word-gap bookkeeping such as lone spaces, and
+empty keepalives) never occupy the queue, so benign bursts keep the reader
+responsive to `close_context` and cancelling a long generation never
+requires draining it first. Every other enqueue (audio, direct-initialization
+audio, and terminals including unknown-context terminals) is bounded
+nonblocking under the same queue bound: a full queue is explicit
+backpressure, so the socket receives a deterministic
+`too_many_queued_messages`
+error and closes instead of stalling control behind queued audio. Explicit
+overload may truncate accepted flushed audio, but the truncation is always
+followed by the error, never by completion. Only the graceful
+`close_socket` drain intentionally waits for already-accepted flushed work.
+Socket
+capacity, idle/lifetime limits and error shape match the single-context
+endpoint.

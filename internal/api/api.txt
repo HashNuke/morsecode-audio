@@ -119,7 +119,39 @@ an invented transcript.
 ## Realtime Text to Audio
 
 Send text incrementally and receive audio before the last text fragment arrives.
-WebSocket endpoint:
+For repeated utterances with separate completion events, keep one connection to:
+
+```text
+wss://morsecode.vxpipe.com/v1/text-to-speech/morse/multi-stream-input?model_id=morse_v1&output_format=pcm_16000
+```
+
+Each line below is a separate JSON message. Read audio while sending:
+
+```json
+{"context_id":"first","text":"SOS"}
+{"context_id":"first","flush":true}
+{"context_id":"first","close_context":true}
+```
+
+Server events identify their context:
+
+```json
+{"contextId":"first","audio":"BASE64_PCM","isFinal":false}
+{"contextId":"first","audio":null,"isFinal":true}
+```
+
+After the final event, send another utterance with a new context_id on the same
+connection. A flush adds the 840-ms tail but keeps its context open; closing that
+context finishes already-flushed audio and emits its final event. Closing an
+unflushed context cancels outstanding audio; already-delivered audio cannot be
+recalled. Neither operation closes the connection.
+
+Keep at most five contexts open. Send {"context_id":"first","text":""} to keep
+an existing idle context alive. Contexts expire after inactivity_timeout seconds
+(default 20; configurable from 1 to 180). Close unused contexts promptly.
+Send {"close_socket":true} when the entire session ends.
+
+The single-stream compatibility endpoint is also available:
 
 ```text
 wss://morsecode.vxpipe.com/v1/text-to-speech/morse/stream-input
@@ -172,7 +204,7 @@ accepts 1 to 180 seconds. Text/audio limits reset after each flush.
 
 Morse uses fixed timing and no contextual generation buffer. auto_mode and
 try_trigger_generation do not delay output. There is no alignment output,
-SSML, MP3 or multi-context endpoint.
+SSML or MP3.
 
 ## Realtime Audio to Text
 

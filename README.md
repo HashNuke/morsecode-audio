@@ -47,7 +47,8 @@ Stop it with Ctrl-C; active streams are canceled and HTTP drains within five sec
 - **Text to Audio:** submit text and receive streamed PCM audio over HTTP.
 - **Audio to Text:** upload a Morse PCM/WAV file and receive its transcript.
 - **Realtime Text to Audio:** stream text fragments over WebSocket and receive
-  audio immediately, with `isFinal` completion.
+  audio immediately. Use `multi-stream-input` for per-context `isFinal`
+  completion across utterances on one persistent connection.
 - **Realtime Audio to Text:** send PCM chunks over WebSocket and receive
   cumulative partials and committed transcripts.
 

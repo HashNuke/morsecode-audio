@@ -9,6 +9,7 @@ behavior hosted online. Unsupported features are not pending parity requirements
 | `POST /v1/text-to-speech/morse` | JSON `text` and optional `model_id`; raw mono PCM |
 | `POST /v1/text-to-speech/morse/stream` | Same input, PCM flushed incrementally with HTTP backpressure |
 | `GET /v1/text-to-speech/morse/stream-input` | Incremental text over WebSocket, base64 PCM events, flush and `isFinal` completion |
+| `GET /v1/text-to-speech/morse/multi-stream-input` | Bounded multi-context WebSocket: per-`context_id` utterances with `contextId` audio correlation, flush-keeps-open sentences, per-context close terminals, keepalive and per-context idle expiry |
 | `POST /v1/speech-to-text` | Multipart `file`, `model_id`, `file_format`; Morse transcript |
 | `GET /v1/speech-to-text/realtime` | WebSocket chunk input and partial/committed transcript messages |
 | `GET /v1/models`, `GET /v1/voices` | Static Morse discovery for service setup |
@@ -36,6 +37,11 @@ Text is bounded to 4096 bytes and individual synthesized audio to 300 seconds.
 Tests cover invalid input, empty/silent audio, independent Morse fixtures,
 chunk boundaries, cancellation, admission limits and shutdown.
 
-No human speech, cloning, browser tokens, multi-context synthesis, compressed
+No human speech, cloning, browser tokens, compressed
 format matrix, URL ingestion, diarization, retained jobs, webhooks or transcript
-history is implemented.
+history is implemented. Multi-context synthesis is bounded: one socket carries
+at most five utterance contexts with per-context completion; flush finishes a
+sentence tail without ending its context, only an explicit close sends that
+context's `isFinal`, and closing an unflushed context cancels its outstanding
+audio. Idle contexts expire separately without pinning the socket; there is
+no concurrent multi-voice fan-out.
