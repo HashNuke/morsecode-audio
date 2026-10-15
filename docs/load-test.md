@@ -42,10 +42,14 @@ ends and requires `isFinal`. TTS audio is read immediately; this measures
 synthesis transport, not slow speaker playback. Both directions stay active
 throughout the hold period rather than merely opening idle connections.
 
-The service currently admits 64 STT sockets and eight TTS sockets/HTTP requests
+The default configuration admits 64 STT sockets and eight TTS sockets/HTTP requests
 combined. A connected TTS socket holds its slot even while waiting for input.
 Start below those limits, then at them. A 65-STT or nine-TTS test should show
-capacity rejections. Do not automatically raise server limits to hide failures.
+capacity rejections. For a hardware-capacity experiment, the server owner can explicitly raise
+`MAX_STT_CONNECTIONS` and `MAX_TTS_CONCURRENCY` (each 1–1000). Otherwise a
+1,000-client run measures admission rejection rather than machine capacity.
+Keep resources fixed, record the temporary limits, and restore normal limits
+afterwards. Do not silently raise limits during an ordinary test.
 For 60/90-second acceptance, read `success`, `errors`, `capacity_429`,
 `peak_realtime_sessions` and `shortest_successful_session_seconds` together.
 
@@ -59,7 +63,7 @@ Flags go after the service and before the URL; both `-flag` and `--flag` work.
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `--concurrency` | 4 | Workers, 1–128. Realtime workers each own one connection. |
+| `--concurrency` | 4 | Workers, 1–1000. Realtime workers each own one connection. |
 | `--duration` | 10s | Realtime session hold / HTTP request-launch window, 1s–10m. |
 | `--timeout` | 10s | Each handshake or turn deadline, 1s–2m; independent of hold duration. |
 | `--text` | SOS | Text per turn; limited to 30 seconds of synthesized audio. |
@@ -72,6 +76,27 @@ text takes longer than the default turn deadline, increase `--timeout` explicitl
 Ctrl-C cancels all workers and closes their sockets. Redirects and implicit
 origins are rejected. The URL must have no credentials, path, query or fragment.
 There are no automatic retries, and no server-only benchmark routes or storage.
+
+## Searching for capacity
+
+With admission explicitly configured to permit the experiment, start at 1,000
+clients for 90 seconds. Test services separately. A passing stage must have all
+requested original sessions succeed, no errors/429s, peak concurrency matching
+the request, and a shortest successful session of at least 90 seconds.
+If 1,000 fails, test the midpoint between it and a known passing count. Repeat
+until the bracket is useful (for example within 32 sessions). Report the highest
+observed pass and the failing bracket, not a precise universal maximum.
+Network, proxy limits and load-generator limits also affect results.
+
+```sh
+morsecode-audio loadtest realtime-stt --concurrency 1000 --duration 90s \
+  https://morsecode.vxpipe.com
+morsecode-audio loadtest realtime-tts --concurrency 1000 --duration 90s \
+  https://morsecode.vxpipe.com
+```
+
+Watch readiness, restarts, CPU and memory between stages. If the service does
+not recover, stop the search and restore its normal admission settings.
 
 ## Correctness and reports
 
@@ -161,3 +186,19 @@ Railway's one-hour window sampled every 30 seconds after these runs reported
 maximum CPU usage 0.0511462 and maximum memory 0.013860864 GB. That broad window
 includes idle time and deployment activity, so these are context, not an isolated
 benchmark peak or a sizing guarantee. The service remained ready afterwards.
+
+## Sustained baseline — 2026-10-15
+
+Before raising admission limits, the v0.1.1 client held original sockets against
+API revision `8cd8d57`, separately for each service, with the same 0.5-vCPU /
+125-MB instance and paced SOS workload. No connections were replaced.
+
+| Service | Original sessions | Completed turns | Shortest successful hold | Errors / 429s |
+| --- | ---: | ---: | ---: | ---: |
+| realtime-stt | 64 | 2238 | 90.045 s | 0 / 0 |
+| realtime-tts | 8 | 1739 | 90.251 s | 0 / 0 |
+
+These demonstrate sustained operation at the original configured limits, not
+hardware saturation. Both post-run smoke checks passed. The subsequent
+1,000-client search temporarily raises admission to distinguish physical /
+end-to-end capacity from those default caps.

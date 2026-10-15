@@ -6,6 +6,11 @@ account required.
 This API produces and reads Morse tones, not human speech. Requests, audio and
 transcripts are not stored.
 
+Use this as a low-cost TTS/STT service wherever Morse audio fits your
+development workflow. You can use the hosted API or run your own copy. For
+self-hosting and downloadable binaries, see the GitHub repository:
+https://github.com/HashNuke/morsecode-audio
+
 ## Quick start
 
 ```text
@@ -286,8 +291,8 @@ Text per TTS utterance    4096 UTF-8 bytes
 Synthesized duration     300 seconds per utterance
 Batch audio upload       12 MiB
 Batch audio duration     300 seconds
-TTS capacity             8 HTTP requests / connected sockets combined
-STT capacity             64 connected sockets (separate pool)
+Default TTS capacity     8 HTTP requests / connected sockets combined
+Default STT capacity     64 connected sockets (separate pool)
 STT PCM per message      256 KiB decoded
 STT WebSocket message    512 KiB
 TTS WebSocket message    64 KiB incoming

@@ -164,3 +164,26 @@ func TestRealtimeTTSDisconnectReleasesCapacity(t *testing.T) {
 		}
 	}
 }
+
+func TestConfiguredSpeechCapacity(t *testing.T) {
+	app := api.NewWithLimits(1, 2)
+	server := httptest.NewServer(app)
+	defer server.Close()
+	_, ctx := dialTTS(t, server, 16000)
+	for range 2 {
+		_, _ = dialSTT(t, server, "model_id=morse_stt_v1")
+	}
+	for _, path := range []string{"/v1/text-to-speech/morse/stream-input", "/v1/speech-to-text/realtime?model_id=morse_stt_v1"} {
+		conn, response, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(server.URL, "http")+path, nil)
+		if conn != nil {
+			conn.CloseNow()
+		}
+		if err == nil || response == nil || response.StatusCode != 429 {
+			t.Fatalf("capacity not enforced for %s", path)
+		}
+	}
+	app.Drain()
+	if err := app.WaitSockets(ctx); err != nil {
+		t.Fatal(err)
+	}
+}

@@ -62,7 +62,7 @@ func parseCommand(args []string, getenv func(string) string, output io.Writer) (
 			if key == "PORT" {
 				return *port
 			}
-			return ""
+			return getenv(key)
 		})
 		return cfg, err == nil, err
 	default:

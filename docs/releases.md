@@ -14,7 +14,7 @@ bin/bump-version patch
 bin/release --dry-run
 bin/release
 git push origin main
-git push origin v0.1.2
+git push origin v0.1.3
 ```
 
 The last command is an example for the next patch version. Push the exact tag

@@ -52,7 +52,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			selected, args = args[0], args[1:]
 		}
 	}
-	concurrency := flags.Int("concurrency", 4, "Concurrent clients (1–128)")
+	concurrency := flags.Int("concurrency", 4, "Concurrent clients (1–1000)")
 	duration := flags.Duration("duration", 10*time.Second, "Session hold duration / HTTP launch window (1s–10m)")
 	timeout := flags.Duration("timeout", 10*time.Second, "Timeout per handshake or turn (1s–2m)")
 	scenario := flags.String("scenario", selected, "tts, stt, realtime-stt, realtime-tts, or all")
@@ -69,7 +69,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		}
 		return 2
 	}
-	if flags.NArg() != 1 || *concurrency < 1 || *concurrency > 128 || *duration < time.Second || *duration > 10*time.Minute || *timeout < time.Second || *timeout > 2*time.Minute {
+	if flags.NArg() != 1 || *concurrency < 1 || *concurrency > 1000 || *duration < time.Second || *duration > 10*time.Minute || *timeout < time.Second || *timeout > 2*time.Minute {
 		flags.Usage()
 		return 2
 	}
@@ -152,8 +152,8 @@ func newTarget(origin, text string) (*target, error) {
 	_ = form.Close()
 	payload, _ := json.Marshal(map[string]string{"text": encoder.Text, "model_id": "morse_v1"})
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.MaxIdleConnsPerHost = 128
-	transport.MaxConnsPerHost = 128
+	transport.MaxIdleConnsPerHost = 1000
+	transport.MaxConnsPerHost = 1000
 	transport.DisableCompression = true
 	client := &http.Client{Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	u.Scheme = map[string]string{"http": "ws", "https": "wss"}[u.Scheme]

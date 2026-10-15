@@ -1,4 +1,10 @@
-The binary now includes sustained realtime load testing:
+Sustained realtime load tests now accept up to 1,000 concurrent clients.
+Server owners can configure `MAX_TTS_CONCURRENCY` and `MAX_STT_CONNECTIONS`
+(1–1000) for explicit capacity experiments; normal defaults remain 8 and 64.
+The homepage and plain-text reference explain development-workflow use and
+self-hosting through the GitHub repository.
+
+For example:
 
 ```sh
 ./morsecode-audio loadtest realtime-stt --concurrency 32 --duration 90s \

@@ -18,10 +18,17 @@ type Server struct {
 	ttsSockets *socketSet
 }
 
-func New() *Server {
-	s := &Server{mux: http.NewServeMux(), ttsSlots: make(chan struct{}, 8), sockets: newSocketSet()}
+func New() *Server { return NewWithLimits(8, 64) }
+
+// NewWithLimits uses startup-validated speech admission limits.
+func NewWithLimits(tts, stt int) *Server {
+	if tts < 1 || tts > 1000 || stt < 1 || stt > 1000 {
+		panic("invalid speech capacity")
+	}
+	s := &Server{mux: http.NewServeMux(), ttsSlots: make(chan struct{}, tts), sockets: newSocketSet()}
+	s.sockets.capacity = stt
 	s.ttsSockets = newSocketSet()
-	s.ttsSockets.capacity = 8
+	s.ttsSockets.capacity = tts
 	s.mux.HandleFunc("GET /{$}", home)
 	s.mux.HandleFunc("GET /llms.txt", reference)
 	s.mux.HandleFunc("GET /assets/inter-variable.woff2", font)

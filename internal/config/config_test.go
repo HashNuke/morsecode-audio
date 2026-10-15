@@ -36,3 +36,33 @@ func TestListenerConfiguration(t *testing.T) {
 		}
 	}
 }
+
+func TestConcurrencyLimits(t *testing.T) {
+	for _, tc := range []struct {
+		tts, stt         string
+		wantTTS, wantSTT int
+		invalid          bool
+	}{
+		{"", "", 8, 64, false}, {"1000", "1000", 1000, 1000, false}, {"2", "3", 2, 3, false},
+		{"0", "64", 0, 0, true}, {"8", "1001", 0, 0, true}, {"wrong", "64", 0, 0, true},
+	} {
+		cfg, err := config.Load(func(key string) string {
+			switch key {
+			case "MAX_TTS_CONCURRENCY":
+				return tc.tts
+			case "MAX_STT_CONNECTIONS":
+				return tc.stt
+			}
+			return ""
+		})
+		if tc.invalid {
+			if err == nil {
+				t.Fatal("accepted invalid capacity")
+			}
+			continue
+		}
+		if err != nil || cfg.MaxTTSConcurrency != tc.wantTTS || cfg.MaxSTTConnections != tc.wantSTT {
+			t.Fatalf("incorrect capacity: %+v %v", cfg, err)
+		}
+	}
+}

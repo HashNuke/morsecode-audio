@@ -75,3 +75,13 @@ HTTPS domain and its certificate. The app does not log request bodies or keys.
 The homepage sends `Cache-Control: no-transform` so Cloudflare does not rewrite
 curl's `file=@sos.pcm` as an email address. Keep this header when changing cache
 settings. See [Cloudflare's email obfuscation exclusions](https://developers.cloudflare.com/waf/tools/scrape-shield/email-address-obfuscation/).
+
+## Capacity experiments
+
+`MAX_TTS_CONCURRENCY` defaults to 8 (HTTP and connected TTS sockets combined);
+`MAX_STT_CONNECTIONS` defaults to 64. Both accept integers 1–1000 at process
+startup. They are admission limits, not a performance promise. For an explicitly
+authorized capacity search, raise them temporarily without changing instance
+resources, measure sustained sessions, then restore the normal settings. Record
+CPU/memory/restarts alongside client failures and 429s. Invalid limits fail
+startup rather than disabling admission control.

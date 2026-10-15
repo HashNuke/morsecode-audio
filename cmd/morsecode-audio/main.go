@@ -37,7 +37,7 @@ func run(cfg config.Config) error {
 		return fmt.Errorf("bind listener: %w", err)
 	}
 	defer listener.Close()
-	handler := api.New()
+	handler := api.NewWithLimits(cfg.MaxTTSConcurrency, cfg.MaxSTTConnections)
 	server := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

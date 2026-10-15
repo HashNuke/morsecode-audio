@@ -8,8 +8,10 @@ import (
 )
 
 type Config struct {
-	Host string
-	Port int
+	Host              string
+	Port              int
+	MaxTTSConcurrency int
+	MaxSTTConnections int
 }
 
 func Load(getenv func(string) string) (Config, error) {
@@ -27,7 +29,26 @@ func Load(getenv func(string) string) (Config, error) {
 	if net.ParseIP(host) == nil && host != "localhost" {
 		return Config{}, errors.New("HOST must be an IP address or localhost")
 	}
-	return Config{Host: host, Port: n}, nil
+	tts, err := capacity(getenv("MAX_TTS_CONCURRENCY"), 8)
+	if err != nil {
+		return Config{}, errors.New("MAX_TTS_CONCURRENCY must be between 1 and 1000")
+	}
+	stt, err := capacity(getenv("MAX_STT_CONNECTIONS"), 64)
+	if err != nil {
+		return Config{}, errors.New("MAX_STT_CONNECTIONS must be between 1 and 1000")
+	}
+	return Config{Host: host, Port: n, MaxTTSConcurrency: tts, MaxSTTConnections: stt}, nil
 }
 
 func (c Config) Address() string { return net.JoinHostPort(c.Host, strconv.Itoa(c.Port)) }
+
+func capacity(value string, fallback int) (int, error) {
+	if value == "" {
+		return fallback, nil
+	}
+	n, err := strconv.Atoi(value)
+	if err != nil || n < 1 || n > 1000 {
+		return 0, errors.New("invalid capacity")
+	}
+	return n, nil
+}
