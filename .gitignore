@@ -1,4 +1,5 @@
-/bin/
+/bin/*
+!/bin/loadtest
 /coverage.out
 .env
 *.test

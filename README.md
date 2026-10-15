@@ -45,6 +45,8 @@ The endpoint is not part of the saved service credential or call spec.
 See the [supported API](docs/elevenlabs-compatibility.md),
 [Morse profile](docs/morse-audio.md), [realtime messages](docs/realtime-stt.md)
 and [Railway runbook](docs/railway-deployment.md).
+For repeatable throughput and latency checks, use [the load-test guide](docs/load-test.md)
+and `bin/loadtest https://morsecode.vxpipe.com`.
 
 ## Verify
 
