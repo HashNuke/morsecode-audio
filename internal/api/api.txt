@@ -27,22 +27,6 @@ To listen with ffplay (part of FFmpeg):
 
 ffplay -f s16le -ar 16000 -ch_layout mono sos.pcm
 
-## Authentication
-
-No authentication is required. HTTP requests and
-WebSocket connections work without an API key.
-
-For clients that expect an ElevenLabs-style key, you
-may send this optional header:
-
-xi-api-key: example-key
-
-The server ignores the header, including blank values.
-No signup, token or real ElevenLabs key is needed.
-Existing clients can keep sending a placeholder key.
-
-This page, /llms.txt, /healthz and /readyz are public.
-
 ## Text to audio
 
 POST /v1/text-to-speech/morse/stream
@@ -123,8 +107,6 @@ audio_format=pcm_16000
 commit_strategy=manual
 
 Connect directly from a browser or server-side client.
-No authentication header or proxy is needed. Omit API
-keys from the URL; no query-string keys are supported.
 
 1. Connect and wait for message_type: session_started.
 2. Send JSON text messages containing small PCM chunks.
@@ -190,10 +172,26 @@ a fresh session; there is no resume or replay history.
 
 ## Audio profile and limits
 
-Tone: 700 Hz. Dot: 60 ms. Dash: 180 ms.
-Gaps: 60 ms within a letter, 180 ms between letters,
-420 ms between words. Synthesized audio ends with
-840 ms of silence. Use this profile for recognition.
+International Morse timing at 20 WPM (PARIS standard):
+dot 60 ms, dash 180 ms, gap within a letter 60 ms,
+gap between letters 180 ms, gap between words 420 ms.
+PARIS plus its word gap is 50 dot units = 3 seconds.
+This is standard 1/3/7 spacing, at a fixed speed.
+
+The 700 Hz pitch is our audio profile choice, not a
+requirement of PARIS timing. Use it for recognition.
+
+At the end of each TTS response, 840 ms of silence
+lets automatic STT distinguish a completed turn from
+a word gap. This 14-unit tail is API-specific, not a
+Morse spacing rule. For example, one PARIS response
+is 3.42 seconds including its tail; word-to-word
+timing within a longer response remains 20 WPM.
+
+Timing references: ITU-R M.1677-1, section 2, and
+ARRL's Morse timing standard:
+https://www.itu.int/rec/R-REC-M.1677-1-200910-I/en
+https://www.arrl.org/files/file/Technology/x9004008.pdf
 
 Text                     4096 UTF-8 bytes
 Synthesized duration     300 seconds per request

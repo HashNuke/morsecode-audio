@@ -14,7 +14,7 @@ func TestPublicDocumentation(t *testing.T) {
 		if w.Code != 200 {
 			t.Fatalf("public documentation %s: %d", path, w.Code)
 		}
-		for _, contract := range []string{"xi-api-key", "/v1/text-to-speech/morse/stream", "/v1/speech-to-text/realtime", "input_audio_chunk", "committed_transcript"} {
+		for _, contract := range []string{"/v1/text-to-speech/morse/stream", "/v1/speech-to-text/realtime", "input_audio_chunk", "committed_transcript"} {
 			if !strings.Contains(w.Body.String(), contract) {
 				t.Errorf("%s missing %s", path, contract)
 			}

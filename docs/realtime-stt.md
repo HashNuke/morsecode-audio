@@ -1,8 +1,7 @@
 # Realtime Morse transcription
 
-Connect to `/v1/speech-to-text/realtime` without authentication. An optional
-`xi-api-key` header is accepted and ignored. Browser WebSocket clients can
-connect directly without a header-setting proxy. The Vxpipe profile is:
+Connect directly to `/v1/speech-to-text/realtime` from a browser or
+server-side WebSocket client. The Vxpipe profile is:
 
 ```text
 model_id=morse_stt_v1

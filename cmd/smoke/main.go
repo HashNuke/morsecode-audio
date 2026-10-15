@@ -23,16 +23,15 @@ import (
 
 func main() {
 	origin := flag.String("base-url", "", "Required HTTP(S) origin of the Morse server")
-	key := flag.String("api-key", "", "Optional compatibility key; the server ignores it")
 	flag.Parse()
-	if err := run(*origin, *key); err != nil {
+	if err := run(*origin); err != nil {
 		fmt.Fprintln(os.Stderr, "Morse smoke failed:", err)
 		os.Exit(1)
 	}
 	fmt.Println("Morse smoke passed: readiness, public discovery, streamed PCM, batch and realtime recognition.")
 }
 
-func run(origin, key string) error {
+func run(origin string) error {
 	u, err := url.Parse(origin)
 	if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") || (u.Scheme != "http" && u.Scheme != "https") {
 		return errors.New("base-url must be an explicit HTTP(S) origin")
@@ -41,13 +40,10 @@ func run(origin, key string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	client := &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	request := func(method, path, contentType, credential string, body io.Reader, status int) ([]byte, error) {
+	request := func(method, path, contentType string, body io.Reader, status int) ([]byte, error) {
 		r, err := http.NewRequestWithContext(ctx, method, origin+path, body)
 		if err != nil {
 			return nil, fmt.Errorf("%s: invalid request", path)
-		}
-		if credential != "" {
-			r.Header.Set("xi-api-key", credential)
 		}
 		r.Header.Set("Content-Type", contentType)
 		response, err := client.Do(r)
@@ -68,14 +64,14 @@ func run(origin, key string) error {
 		return data, nil
 	}
 	for _, check := range []struct {
-		path, key string
-		status    int
-	}{{"/readyz", "", 200}, {"/v1/models", "", 200}, {"/v1/models", "ignored-example-key", 200}, {"/v1/voices", key, 200}} {
-		if _, err := request("GET", check.path, "", check.key, nil, check.status); err != nil {
+		path   string
+		status int
+	}{{"/readyz", 200}, {"/v1/models", 200}, {"/v1/voices", 200}} {
+		if _, err := request("GET", check.path, "", nil, check.status); err != nil {
 			return err
 		}
 	}
-	pcm, err := request("POST", "/v1/text-to-speech/morse/stream?output_format=pcm_16000", "application/json", key,
+	pcm, err := request("POST", "/v1/text-to-speech/morse/stream?output_format=pcm_16000", "application/json",
 		strings.NewReader(`{"text":"E T","model_id":"morse_v1"}`), 200)
 	if err != nil {
 		return err
@@ -90,7 +86,7 @@ func run(origin, key string) error {
 	_ = form.WriteField("model_id", "morse_stt_v1")
 	_ = form.WriteField("file_format", "pcm_s16le_16")
 	_ = form.Close()
-	transcript, err := request("POST", "/v1/speech-to-text", form.FormDataContentType(), key, &body, 200)
+	transcript, err := request("POST", "/v1/speech-to-text", form.FormDataContentType(), &body, 200)
 	if err != nil {
 		return err
 	}
@@ -101,11 +97,7 @@ func run(origin, key string) error {
 	u.Scheme = map[string]string{"http": "ws", "https": "wss"}[u.Scheme]
 	u.Path = "/v1/speech-to-text/realtime"
 	u.RawQuery = "model_id=morse_stt_v1&audio_format=pcm_16000&commit_strategy=vad&vad_silence_threshold_secs=0.84"
-	headers := http.Header{}
-	if key != "" {
-		headers.Set("xi-api-key", key)
-	}
-	conn, _, err := websocket.Dial(ctx, u.String(), &websocket.DialOptions{HTTPClient: client, HTTPHeader: headers})
+	conn, _, err := websocket.Dial(ctx, u.String(), &websocket.DialOptions{HTTPClient: client})
 	if err != nil {
 		return errors.New("realtime STT connection failed")
 	}

@@ -46,8 +46,7 @@ lost on restart, with no retained requests to recover.
    `go run ./cmd/smoke -base-url https://morse-audio.definerun.com`.
 
 The [healthcheck](https://docs.railway.com/deployments/healthchecks) gates a
-deployment; it is not continuous uptime monitoring. No API key needs registering
-on Railway. Requests work without a key; any supplied key is ignored.
+deployment; it is not continuous uptime monitoring. All endpoints are public.
 
 ## Switch Vxpipe
 
@@ -67,6 +66,6 @@ tested origin alongside the smoke result. Local testing does not establish hoste
 availability; hosted checks stay pending until the user deploys.
 
 Troubleshooting: a failed healthcheck usually requires checking HOST/PORT and
-startup logs; no authentication header is required; wrong sample format/rate yields
+startup logs; wrong sample format/rate yields
 422 or an STT input error; a failed WSS connection requires checking the selected
 HTTPS domain and its certificate. The app does not log request bodies or keys.

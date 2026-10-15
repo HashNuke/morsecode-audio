@@ -5,6 +5,21 @@ The initial profile matches Vxpipe's local Morse codec: 700 Hz sine, amplitude
 16000, 24000 and 48000 Hz at the API boundary. Dots/dashes are 1/3 units; symbol,
 letter and word gaps are 1/3/7 units. Synthesis appends 14 units of silence.
 
+These are standard International Morse ratios at **20 WPM on the PARIS
+scale**. PARIS including the following seven-unit word space occupies 50 dot
+units; 50 × 60 ms = 3 seconds, or 20 reference words per minute. PARIS is a
+speed reference, not a different alphabet. A fixed speed does not make the
+timing nonstandard. See [ARRL's timing standard](https://www.arrl.org/files/file/Technology/x9004008.pdf)
+and section 2 of [ITU-R M.1677-1](https://www.itu.int/rec/R-REC-M.1677-1-200910-I/en).
+
+The final 14-unit silence is an API turn-ending convention inherited from
+Vxpipe's local codec. It lets automatic STT distinguish an utterance boundary
+from the ordinary seven-unit word gap; it is not a PARIS timing requirement
+or merely anti-clipping padding. A standalone PARIS response therefore lasts
+57 units (3.42 seconds); consecutive PARIS word onsets within one response
+remain 50 units (3 seconds) apart. The 700 Hz pitch is also a profile choice,
+independent of the PARIS speed calculation.
+
 The alphabet contains A–Z, digits and `. , : ? ' - / ( ) " = + @`. Text is
 uppercased and whitespace collapsed. Unsupported characters fail before any audio
 is sent. The digit/letter and punctuation mappings follow ITU-R M.1677-1, using

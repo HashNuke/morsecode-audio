@@ -34,13 +34,12 @@ func New() *Server {
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// All browser origins may use this public API. Compatibility keys
-	// are accepted but ignored; no credentials are required.
+	// All browser origins may use this public API without credentials.
 	if strings.HasPrefix(r.URL.Path, "/v1/") {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		if r.Method == "OPTIONS" {
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "content-type, xi-api-key")
+			w.Header().Set("Access-Control-Allow-Headers", "content-type")
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
