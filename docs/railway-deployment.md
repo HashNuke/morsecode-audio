@@ -69,3 +69,9 @@ Troubleshooting: a failed healthcheck usually requires checking HOST/PORT and
 startup logs; wrong sample format/rate yields
 422 or an STT input error; a failed WSS connection requires checking the selected
 HTTPS domain and its certificate. The app does not log request bodies or keys.
+# Cloudflare documentation integrity
+
+The homepage sends `Cache-Control: no-transform` so Cloudflare does not rewrite
+curl's `file=@sos.pcm` as an email address. Keep this header when changing cache
+settings. See [Cloudflare's email obfuscation exclusions](https://developers.cloudflare.com/waf/tools/scrape-shield/email-address-obfuscation/).
+

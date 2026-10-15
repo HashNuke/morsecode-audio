@@ -71,6 +71,8 @@ var homepage = func() []byte {
 
 func home(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	// Preserve literal curl upload syntax through Cloudflare email obfuscation.
+	w.Header().Set("Cache-Control", "no-transform")
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; font-src 'self'; base-uri 'none'; frame-ancestors 'none'")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	_, _ = w.Write(homepage)

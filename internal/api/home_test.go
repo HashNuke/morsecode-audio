@@ -50,3 +50,13 @@ func TestDocumentationTypography(t *testing.T) {
 		t.Fatal("homepage font must be served locally as WOFF2")
 	}
 }
+
+func TestDocumentationDisallowsProxyRewriting(t *testing.T) {
+	w := request(api.New(), "GET", "/", "")
+	if w.Header().Get("Cache-Control") != "no-transform" {
+		t.Fatal("proxies must not rewrite the file=@sos.pcm code example")
+	}
+	if !strings.Contains(w.Body.String(), "file=@sos.pcm") {
+		t.Fatal("multipart example must retain curl's file-upload syntax")
+	}
+}
